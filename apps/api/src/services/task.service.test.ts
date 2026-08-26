@@ -52,7 +52,11 @@ describe("task.service", () => {
     });
     expect((await Student.findById(student._id).lean())?.totalPoints).toBe(0);
 
-    await approveSubmission({ submissionId: submission._id, approvedBy: supervisor._id });
+    await approveSubmission({
+      organizationId: org._id,
+      submissionId: submission._id,
+      approvedBy: supervisor._id,
+    });
     expect((await Student.findById(student._id).lean())?.totalPoints).toBe(15);
   });
 
@@ -70,10 +74,15 @@ describe("task.service", () => {
       status: "completed",
     });
 
-    await approveSubmission({ submissionId: submission._id, approvedBy: supervisor._id });
+    await approveSubmission({
+      organizationId: org._id,
+      submissionId: submission._id,
+      approvedBy: supervisor._id,
+    });
     expect((await Student.findById(student._id).lean())?.totalPoints).toBe(15);
 
     const rejected = await rejectSubmission({
+      organizationId: org._id,
       submissionId: submission._id,
       rejectionReason: "لم يكتمل الحفظ بشكل صحيح",
       rejectedBy: supervisor._id,
@@ -83,6 +92,7 @@ describe("task.service", () => {
     expect((await Student.findById(student._id).lean())?.totalPoints).toBe(0);
 
     const reapproved = await approveSubmission({
+      organizationId: org._id,
       submissionId: submission._id,
       approvedBy: supervisor._id,
     });

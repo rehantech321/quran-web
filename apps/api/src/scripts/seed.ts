@@ -324,9 +324,14 @@ async function main() {
       });
 
       if (state === "approved") {
-        await approveSubmission({ submissionId: submission._id, approvedBy: createdBy });
+        await approveSubmission({
+          organizationId: org._id,
+          submissionId: submission._id,
+          approvedBy: createdBy,
+        });
       } else if (state === "rejected") {
         await rejectSubmission({
+          organizationId: org._id,
           submissionId: submission._id,
           rejectionReason: "الرجاء إعادة التسميع مع المشرف",
           rejectedBy: createdBy,

@@ -9,10 +9,8 @@ import {
   updateStudentSchema,
 } from "@halaqat/shared";
 
-import { NotFoundError } from "../errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
-import { getCircle } from "../services/circle.service.js";
 import {
   createStudent,
   deleteStudent,
@@ -23,19 +21,7 @@ import {
   regenerateStudentSlug,
   updateStudent,
 } from "../services/student.service.js";
-
-async function assertSupervisorOwnsCircle(
-  organizationId: string,
-  role: string,
-  userId: string,
-  circleId: string,
-) {
-  if (role !== "supervisor") return;
-  const circle = await getCircle(organizationId, circleId);
-  if (circle.supervisorId.toString() !== userId) {
-    throw new NotFoundError("circle");
-  }
-}
+import { assertSupervisorOwnsCircle } from "./shared/assertSupervisorOwnsCircle.js";
 
 export function createStudentsRouter() {
   const router = Router();

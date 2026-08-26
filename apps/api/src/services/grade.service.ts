@@ -9,6 +9,17 @@ import {
 } from "./points.service.js";
 import { loadOrgAndCircle } from "./shared/loadOrgAndCircle.js";
 
+export async function listGrades(
+  organizationId: Types.ObjectId,
+  filter: { circleId?: Types.ObjectId | string; weekOf?: Date } = {},
+) {
+  return CircleGrade.find({
+    organizationId,
+    ...(filter.circleId ? { circleId: filter.circleId } : {}),
+    ...(filter.weekOf ? { weekOf: filter.weekOf } : {}),
+  }).sort({ weekOf: -1, createdAt: -1 });
+}
+
 /**
  * Grade -> points conversion (SPEC.md §4 Organization.pointsConfig.gradeToPointsMode
  * doesn't specify the formula, so this is a logged decision — see DECISIONS.md):
@@ -92,6 +103,15 @@ export async function recordGrade(params: RecordGradeParams) {
   } finally {
     await session.endSession();
   }
+}
+
+export async function getGrade(
+  organizationId: Types.ObjectId,
+  gradeId: Types.ObjectId | string,
+) {
+  const grade = await CircleGrade.findOne({ _id: gradeId, organizationId });
+  if (!grade) throw new NotFoundError("grade");
+  return grade;
 }
 
 export interface UpdateGradeParams {

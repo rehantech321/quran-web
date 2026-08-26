@@ -190,4 +190,58 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   stored — it's cheap to generate and this way a slug regeneration never leaves a
   stale cached image behind.
 
+## Phase 6 — Feature APIs (attendance, grades, questions, tasks)
+
+- **Found and fixed a router-ordering bug that silently 401'd unrelated requests.**
+  `createStudentsRouter()` is mounted at the bare `/api/v1` prefix (it needs to define
+  both `/circles/:id/students` and `/students*`), and its first layer is an
+  unconditional `router.use(requireAuth)`. Because Express matches `app.use()` mount
+  prefixes in _registration order_, and `"/api/v1"` is a prefix of every other
+  route, mounting this router _before_ `/api/v1/questions`, `/api/v1/tasks`, etc.
+  meant every request to those routers passed through this router's blanket
+  `requireAuth` first — including student-token requests to `/questions/active`,
+  which got rejected with 401 before Express ever reached the questions router that
+  should have handled them with `requireStudentAuth`. Fixed by moving
+  `app.use("/api/v1", createStudentsRouter())` to be registered **last**, after every
+  other `/api/v1/*` router — this is caught by `featureApi.routes.test.ts`'s first
+  test, which would regress immediately if the ordering broke again.
+- **`approveSubmission`/`rejectSubmission` gained a required `organizationId`
+  param.** They were written in Phase 3 as internal domain logic only reachable from
+  tests/seed data, so they trusted `submissionId` alone. Now that they're reachable
+  over HTTP (`POST /tasks/:taskId/submissions/:id/approve|reject`), a submission id
+  with no org check would have let a supervisor from one organization approve or
+  reject a submission belonging to a completely different mosque just by guessing or
+  enumerating ids. Added a `getSubmissionWithTask` read-only lookup for routes to
+  verify org + circle ownership _before_ calling the mutating functions (same
+  pattern as the attendance/grade routes below).
+- **Routes that mutate an existing record (attendance PATCH, grade PATCH, task
+  approve/reject) always fetch-and-check ownership before calling the mutating
+  service function, never after.** The service functions themselves fetch by id and
+  mutate in one step; if the route checked "is this the supervisor's circle?" using
+  the _return value_ of the mutating call, the mutation would already have happened
+  before the check could reject it. `featureApi.routes.test.ts` asserts this
+  explicitly for attendance: a cross-circle PATCH gets 404'd _and_ the record is
+  verified unchanged afterward.
+- **`WeeklyQuestion.points` defaults from the circle's/org's
+  `pointsConfig.defaultQuestionPoints`** when omitted from `POST /questions` — the
+  Mongoose field is required but the Zod input schema allows omitting it (per
+  SPEC.md §4: "points: number; // default from org config (20)"), so `createQuestion`
+  now resolves the effective points config the same way attendance/grades do rather
+  than passing `undefined` straight through to a required field.
+- **`GET /questions/active` strips `correctOptionKey`/`explanation` from the
+  response** before returning it to the student — those only reveal once
+  `answerQuestion` has graded a real attempt, so the payload itself can't be
+  inspected to find the answer.
+- **`GET /tasks/pending-approvals` scopes to the supervisor's own circles by
+  default** (resolved via `listCircles(orgId, { supervisorId })` when no explicit
+  `circleId` query param is given) rather than the org-wide queue — a supervisor
+  shouldn't see (or approve) another supervisor's students' submissions just because
+  the query param was omitted.
+- **`GET /tasks` and `GET /questions`'s `status`/`circleId` query params are staff
+  listing filters only** — `taskQuerySchema`'s `status` field (`SubmissionStatus`)
+  isn't applied to the staff `GET /tasks` listing (which lists _tasks_, not
+  _submissions_ — there's no single "status" for a task shared across many students'
+  submissions). It's meaningful for `GET /tasks/mine`'s active/completed split
+  instead, which is the actual per-student view.
+
 _(Further entries appended as later phases land.)_

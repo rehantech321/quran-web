@@ -4,6 +4,7 @@ import type { AttendanceStatus, PointsConfig } from "@halaqat/shared";
 
 import { ConflictError, NotFoundError } from "../errors.js";
 import { AttendanceRecord } from "../models/AttendanceRecord.js";
+import { Organization } from "../models/Organization.js";
 import { Student } from "../models/Student.js";
 import { isAfterTimeOnSessionDate, normalizeSessionDate } from "../utils/timezone.js";
 import {
@@ -176,6 +177,15 @@ export async function recordManualAttendance(params: RecordManualAttendanceParam
   }
 }
 
+export async function getAttendanceRecord(
+  organizationId: Types.ObjectId,
+  attendanceId: Types.ObjectId | string,
+) {
+  const record = await AttendanceRecord.findOne({ _id: attendanceId, organizationId });
+  if (!record) throw new NotFoundError("attendance_record");
+  return record;
+}
+
 export interface UpdateAttendanceRecordParams {
   attendanceId: Types.ObjectId;
   status: AttendanceStatus;
@@ -289,4 +299,53 @@ export async function closeSession(params: CloseSessionParams) {
   } finally {
     await mongoSession.endSession();
   }
+}
+
+export interface AttendanceRosterEntry {
+  studentId: Types.ObjectId;
+  fullName: string;
+  photoUrl?: string;
+  status: AttendanceStatus | "not_recorded";
+  checkInAt?: Date;
+  pointsAwarded?: number;
+  attendanceRecordId?: Types.ObjectId;
+}
+
+/** Every active student in the circle, each paired with their status for `date` (or "not_recorded"). */
+export async function getAttendanceRoster(
+  organizationId: Types.ObjectId,
+  circleId: Types.ObjectId,
+  date: Date,
+): Promise<AttendanceRosterEntry[]> {
+  const org = await Organization.findById(organizationId).lean();
+  if (!org) throw new NotFoundError("organization");
+  const sessionDate = normalizeSessionDate(date, org.timezone);
+
+  const students = await Student.find({
+    organizationId,
+    circleId,
+    isActive: true,
+    deletedAt: null,
+  })
+    .sort({ fullName: 1 })
+    .lean();
+
+  const records = await AttendanceRecord.find({
+    studentId: { $in: students.map((s) => s._id) },
+    sessionDate,
+  }).lean();
+  const recordByStudentId = new Map(records.map((r) => [String(r.studentId), r]));
+
+  return students.map((student) => {
+    const record = recordByStudentId.get(String(student._id));
+    return {
+      studentId: student._id,
+      fullName: student.fullName,
+      photoUrl: student.photoUrl,
+      status: record?.status ?? "not_recorded",
+      checkInAt: record?.checkInAt,
+      pointsAwarded: record?.pointsAwarded,
+      attendanceRecordId: record?._id,
+    };
+  });
 }
