@@ -2,6 +2,7 @@ export * from "./Button";
 export * from "./Card";
 export * from "./Input";
 export * from "./Modal";
+export * from "./ProgressRing";
 export * from "./Select";
 export * from "./Skeleton";
 export * from "./StatusChip";

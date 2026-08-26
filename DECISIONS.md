@@ -317,4 +317,66 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   is what caught the i18n default-language bug above; a type-check alone would have
   missed it.
 
+## Phase 9 — Supervisor app
+
+- **Found and fixed a real crash bug via the browser check**: `ScanBarcode`'s cleanup
+  effect unconditionally called `scanner.stop()` on unmount. `html5-qrcode`'s `stop()`
+  throws _synchronously_ ("Cannot stop, scanner is not running or paused") rather than
+  rejecting a promise when the scanner never successfully started — which happens for
+  any camera permission denial or missing camera, not just this sandboxed environment.
+  A synchronous throw inside a `useEffect` cleanup isn't caught by a `.catch()` on a
+  promise chain, so it propagated to React's error boundary and blanked the whole
+  route. Fixed by checking `scanner.getState()` against
+  `Html5QrcodeScannerState.SCANNING/PAUSED` before calling `stop()`, wrapped in
+  try/catch. Also fixed a related gap in the same effect: when `getCameras()` resolves
+  with an empty array (no error, just zero cameras), the code silently did nothing
+  instead of surfacing the manual-entry fallback UI.
+- **Found and fixed a real layout bug**: `StudentForm` was missing the `pb-24` bottom
+  padding every other staff page has to clear the fixed mobile bottom tab bar, so the
+  QR/access-link card and delete button rendered partially behind it. Caught by an
+  actual mobile-viewport screenshot, not by build/lint.
+- **QR codes and report exports are fetched as authenticated blobs, not `<img src>`/
+  `<a href>`.** Both `GET /students/:id/qr.png` and `GET /reports/export` require a
+  staff bearer token (the QR encodes the same slug that bootstraps a student session,
+  so it can't be anonymously fetchable — see Phase 5's decision on that). A plain
+  `<img>` or navigation-triggered download can't attach an Authorization header, so
+  `useStudentQrObjectUrl` and `downloadReportExport` fetch through the authenticated
+  axios client and hand back a blob object URL / trigger a throwaway-anchor download
+  instead.
+- **Circle listing was extended server-side with `studentCount` and today's
+  attendance-recording progress** (`listCirclesWithStats` in `circle.service.ts`) —
+  SPEC.md §7 screen 2 explicitly asks for both on the Circles-list card, and the
+  original `GET /circles` response had neither. "Today's attendance progress ring"
+  is interpreted as _recorded/total_ (how much of today's roster has been processed),
+  not attendance rate — a ring that fills as the supervisor works through scanning,
+  which matches "progress" better than a presence percentage would.
+- **No file-upload endpoint was built; student/org photos are a plain URL field.**
+  SPEC.md §1 lists Multer + local disk for file upload and §7 screen 10 asks for
+  "photo upload with a circular cropper," but no upload route exists anywhere in
+  Phases 5–7 — building that infrastructure (Multer config, storage adapter, crop UI)
+  is a substantial side-quest against the remaining phase budget. Every photo field
+  (`Student.photoUrl`, `Organization.logoUrl`) already accepted an arbitrary URL, and
+  the seed script already relies on this (dicebear placeholder URLs) — the form just
+  exposes that same field as a text input instead of a file picker. Revisit if real
+  photo upload becomes a priority.
+- **"Points-over-time line chart" (SPEC.md §7 screen 11) became a leaderboard bar
+  chart** (Recharts, points per student) instead of a true time series — there's no
+  historical circle-level points snapshot endpoint, and building one (time-bucketed
+  ledger aggregation) was out of scope for this pass. The leaderboard itself already
+  needed a chart and reuses the same data.
+- **A dedicated `/app/approvals` route exists alongside the per-circle approvals
+  section already embedded in the circle detail Tasks tab** — SPEC.md §7 lists
+  "Approvals queue" as its own screen (9) distinct from circle detail (3), and it
+  naturally spans every circle a supervisor runs rather than being scoped to one.
+- **Bottom nav maps to Circles / Scan / Reports / Profile exactly as SPEC.md §2.5
+  specifies for supervisors — "Profile" routes to the Settings screen.** There's no
+  separate staff profile screen anywhere in the spec's 12-screen list; Settings already
+  covers org branding, points config, and supervisor management, so it doubles as the
+  4th tab's destination rather than inventing a new screen.
+- **Verified the whole supervisor app end-to-end against a real seeded backend**
+  (temp MongoDB replica set + API + Vite dev server, driven with Playwright): login,
+  circles list, all 6 circle-detail tabs, student create/edit with the QR/access
+  card, the scan screen's manual-entry fallback, reports, settings, and the
+  approvals queue — all with zero browser console errors after the two fixes above.
+
 _(Further entries appended as later phases land.)_

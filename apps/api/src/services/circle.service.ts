@@ -1,11 +1,14 @@
-import type { Types } from "mongoose";
+import { Types } from "mongoose";
 
 import type { CreateCircleInput, UpdateCircleInput } from "@halaqat/shared";
 
 import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
+import { AttendanceRecord } from "../models/AttendanceRecord.js";
 import { Circle } from "../models/Circle.js";
+import { Organization } from "../models/Organization.js";
 import { Student } from "../models/Student.js";
 import { User } from "../models/User.js";
+import { normalizeSessionDate } from "../utils/timezone.js";
 
 export async function listCircles(
   organizationId: string,
@@ -16,6 +19,51 @@ export async function listCircles(
     deletedAt: null,
     ...(filter.supervisorId ? { supervisorId: filter.supervisorId } : {}),
   }).sort({ name: 1 });
+}
+
+export interface CircleWithStats {
+  studentCount: number;
+  todayAttendance: { recorded: number; total: number };
+}
+
+/** Circle list enriched with the student count and today's attendance progress the Circles-list screen needs (SPEC.md §7 screen 2). */
+export async function listCirclesWithStats(
+  organizationId: string,
+  filter: { supervisorId?: string } = {},
+) {
+  const circles = await listCircles(organizationId, filter);
+  if (circles.length === 0) return [];
+
+  const circleIds = circles.map((c) => c._id);
+  const org = await Organization.findById(organizationId).lean();
+  const today = normalizeSessionDate(new Date(), org?.timezone ?? "UTC");
+
+  const [studentCounts, attendanceCounts] = await Promise.all([
+    Student.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { circleId: { $in: circleIds }, isActive: true, deletedAt: null } },
+      { $group: { _id: "$circleId", count: { $sum: 1 } } },
+    ]),
+    AttendanceRecord.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { circleId: { $in: circleIds }, sessionDate: today } },
+      { $group: { _id: "$circleId", count: { $sum: 1 } } },
+    ]),
+  ]);
+  const studentCountByCircle = new Map(
+    studentCounts.map((s) => [String(s._id), s.count]),
+  );
+  const recordedByCircle = new Map(attendanceCounts.map((a) => [String(a._id), a.count]));
+
+  return circles.map((circle) => {
+    const total = studentCountByCircle.get(String(circle._id)) ?? 0;
+    return {
+      ...circle.toObject(),
+      studentCount: total,
+      todayAttendance: {
+        recorded: Math.min(recordedByCircle.get(String(circle._id)) ?? 0, total),
+        total,
+      },
+    };
+  });
 }
 
 export async function getCircle(

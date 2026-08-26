@@ -13,7 +13,7 @@ import {
   createCircle,
   deleteCircle,
   getCircle,
-  listCircles,
+  listCirclesWithStats,
   updateCircle,
 } from "../services/circle.service.js";
 
@@ -23,7 +23,7 @@ export function createCirclesRouter() {
 
   router.get("/", async (req, res) => {
     const scopedToOwnCircles = req.user!.role === "supervisor";
-    const circles = await listCircles(req.user!.organizationId, {
+    const circles = await listCirclesWithStats(req.user!.organizationId, {
       supervisorId: scopedToOwnCircles ? req.user!.id : undefined,
     });
     res.json({ success: true, data: circles });
