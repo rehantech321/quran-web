@@ -1,31 +1,101 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
 import { StaffProtectedRoute, StudentProtectedRoute } from "@/components/ProtectedRoute";
+import { Skeleton } from "@/components/ui";
 import { StaffLayout } from "@/layouts/StaffLayout";
 import { StudentLayout } from "@/layouts/StudentLayout";
 import { Home } from "@/pages/Home";
-import { KitchenSink } from "@/pages/dev/KitchenSink";
-import { ApprovalsQueue } from "@/pages/staff/ApprovalsQueue";
-import { CircleDetail } from "@/pages/staff/circle/CircleDetail";
-import { CirclesList } from "@/pages/staff/CirclesList";
-import { Login } from "@/pages/staff/Login";
-import { Reports } from "@/pages/staff/Reports";
-import { ScanBarcode } from "@/pages/staff/ScanBarcode";
-import { ScanCirclePicker } from "@/pages/staff/ScanCirclePicker";
-import { Settings } from "@/pages/staff/Settings";
-import { StudentForm } from "@/pages/staff/StudentForm";
-import { MyTasks } from "@/pages/student/MyTasks";
-import { PointsHistory } from "@/pages/student/PointsHistory";
-import { Profile } from "@/pages/student/Profile";
-import { StudentAccessResolver } from "@/pages/student/StudentAccessResolver";
-import { StudentDashboard } from "@/pages/student/StudentDashboard";
-import { WeeklyQuestion } from "@/pages/student/WeeklyQuestion";
+import { NotFound } from "@/pages/NotFound";
+
+// Route-level code splitting: each page (and its own dependencies — react-hook-form,
+// recharts, html5-qrcode, pdfkit-adjacent report helpers, ...) only downloads when
+// that route is actually visited, instead of one ~1.4MB bundle up front. Matters for
+// the Lighthouse performance budget (SPEC.md §11) on the mobile connections
+// supervisors actually use standing in the mosque.
+const KitchenSink = lazy(() =>
+  import("@/pages/dev/KitchenSink").then((m) => ({ default: m.KitchenSink })),
+);
+const Login = lazy(() =>
+  import("@/pages/staff/Login").then((m) => ({ default: m.Login })),
+);
+const CirclesList = lazy(() =>
+  import("@/pages/staff/CirclesList").then((m) => ({ default: m.CirclesList })),
+);
+const CircleDetail = lazy(() =>
+  import("@/pages/staff/circle/CircleDetail").then((m) => ({ default: m.CircleDetail })),
+);
+const ScanBarcode = lazy(() =>
+  import("@/pages/staff/ScanBarcode").then((m) => ({ default: m.ScanBarcode })),
+);
+const ScanCirclePicker = lazy(() =>
+  import("@/pages/staff/ScanCirclePicker").then((m) => ({ default: m.ScanCirclePicker })),
+);
+const StudentForm = lazy(() =>
+  import("@/pages/staff/StudentForm").then((m) => ({ default: m.StudentForm })),
+);
+const ApprovalsQueue = lazy(() =>
+  import("@/pages/staff/ApprovalsQueue").then((m) => ({ default: m.ApprovalsQueue })),
+);
+const Reports = lazy(() =>
+  import("@/pages/staff/Reports").then((m) => ({ default: m.Reports })),
+);
+const Settings = lazy(() =>
+  import("@/pages/staff/Settings").then((m) => ({ default: m.Settings })),
+);
+const PrintStudentCards = lazy(() =>
+  import("@/pages/staff/PrintStudentCards").then((m) => ({
+    default: m.PrintStudentCards,
+  })),
+);
+const StudentAccessResolver = lazy(() =>
+  import("@/pages/student/StudentAccessResolver").then((m) => ({
+    default: m.StudentAccessResolver,
+  })),
+);
+const StudentDashboard = lazy(() =>
+  import("@/pages/student/StudentDashboard").then((m) => ({
+    default: m.StudentDashboard,
+  })),
+);
+const PointsHistory = lazy(() =>
+  import("@/pages/student/PointsHistory").then((m) => ({ default: m.PointsHistory })),
+);
+const WeeklyQuestion = lazy(() =>
+  import("@/pages/student/WeeklyQuestion").then((m) => ({ default: m.WeeklyQuestion })),
+);
+const MyTasks = lazy(() =>
+  import("@/pages/student/MyTasks").then((m) => ({ default: m.MyTasks })),
+);
+const Profile = lazy(() =>
+  import("@/pages/student/Profile").then((m) => ({ default: m.Profile })),
+);
+
+function withSuspense(node: ReactNode) {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6">
+          <Skeleton className="h-40 w-full" />
+        </div>
+      }
+    >
+      {node}
+    </Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
-  { path: "/login", element: <Login /> },
-  { path: "/dev/kitchen-sink", element: <KitchenSink /> },
-  { path: "/student/:slug", element: <StudentAccessResolver /> },
+  { path: "/login", element: withSuspense(<Login />) },
+  { path: "/dev/kitchen-sink", element: withSuspense(<KitchenSink />) },
+  { path: "/student/:slug", element: withSuspense(<StudentAccessResolver />) },
+  {
+    path: "/app/circles/:circleId/print",
+    element: (
+      <StaffProtectedRoute>{withSuspense(<PrintStudentCards />)}</StaffProtectedRoute>
+    ),
+  },
   {
     path: "/app",
     element: (
@@ -34,15 +104,15 @@ export const router = createBrowserRouter([
       </StaffProtectedRoute>
     ),
     children: [
-      { path: "circles", element: <CirclesList /> },
-      { path: "circles/:circleId", element: <CircleDetail /> },
-      { path: "circles/:circleId/scan", element: <ScanBarcode /> },
-      { path: "scan", element: <ScanCirclePicker /> },
-      { path: "students/new", element: <StudentForm /> },
-      { path: "students/:studentId", element: <StudentForm /> },
-      { path: "approvals", element: <ApprovalsQueue /> },
-      { path: "reports", element: <Reports /> },
-      { path: "settings", element: <Settings /> },
+      { path: "circles", element: withSuspense(<CirclesList />) },
+      { path: "circles/:circleId", element: withSuspense(<CircleDetail />) },
+      { path: "circles/:circleId/scan", element: withSuspense(<ScanBarcode />) },
+      { path: "scan", element: withSuspense(<ScanCirclePicker />) },
+      { path: "students/new", element: withSuspense(<StudentForm />) },
+      { path: "students/:studentId", element: withSuspense(<StudentForm />) },
+      { path: "approvals", element: withSuspense(<ApprovalsQueue />) },
+      { path: "reports", element: withSuspense(<Reports />) },
+      { path: "settings", element: withSuspense(<Settings />) },
     ],
   },
   {
@@ -53,11 +123,12 @@ export const router = createBrowserRouter([
       </StudentProtectedRoute>
     ),
     children: [
-      { index: true, element: <StudentDashboard /> },
-      { path: "points-history", element: <PointsHistory /> },
-      { path: "question", element: <WeeklyQuestion /> },
-      { path: "tasks", element: <MyTasks /> },
-      { path: "profile", element: <Profile /> },
+      { index: true, element: withSuspense(<StudentDashboard />) },
+      { path: "points-history", element: withSuspense(<PointsHistory />) },
+      { path: "question", element: withSuspense(<WeeklyQuestion />) },
+      { path: "tasks", element: withSuspense(<MyTasks />) },
+      { path: "profile", element: withSuspense(<Profile />) },
     ],
   },
+  { path: "*", element: <NotFound /> },
 ]);

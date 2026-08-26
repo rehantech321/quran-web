@@ -416,4 +416,58 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   drove the actual answer flow in a browser (since every seeded student had already
   answered all seeded questions) — this is what caught the result-card bug above.
 
+## Phase 11 — Polish
+
+- **Added `EmptyState`/`ErrorState` UI primitives** and swapped every ad-hoc
+  "no results" / raw error string across the staff and student screens over to
+  them, so empty and failed states get consistent ornament-backed styling,
+  i18n'd copy, and (for `ErrorState`) a retry action instead of a dead end.
+- **Added `OfflineBanner`** (via `navigator.onLine` + `online`/`offline` listeners)
+  and a catch-all `NotFound` route — neither was in the original 19-screen list but
+  both are named explicitly in SPEC.md §9 ("shared Print view and Empty/error/offline
+  states").
+- **Added the Print view** (`PrintStudentCards`, route
+  `/app/circles/:circleId/print`, deliberately mounted _outside_ `StaffLayout` so
+  the sidebar/bottom-nav chrome doesn't print) with a dedicated `print.css` using
+  `@media print` to hide app chrome and lay out one QR card per student. Built
+  `useBlobObjectUrls` to fetch each student's `qr.png` as an authenticated blob
+  (the endpoint requires a bearer token, so a plain `<img src="/api/...">` can't
+  work) and revoke the object URLs on unmount to avoid leaking memory on a page
+  that can render 30+ images.
+- **Route-level code splitting**: converted nearly every page component in
+  `router.tsx` to `React.lazy` + `Suspense`. This was driven by a real measurement,
+  not speculation — an initial Lighthouse run against the unsplit production build
+  showed a ~1.4MB main bundle with `html5-qrcode` (ScanBarcode, ~339KB) and
+  `recharts` (Reports, ~374KB) both loading on every route regardless of whether
+  the visitor ever reaches those screens. Splitting them out is what let the shared
+  entry chunk drop to ~40KB.
+- **Added `manualChunks` to `vite.config.ts`** to split vendor libraries
+  (react/react-dom/react-router, TanStack Query+axios+zustand, i18next, react-hook-form+zod,
+  framer-motion) into their own cacheable chunks, separate from route chunks and from
+  each other. Measured effect: Lighthouse performance score moved from 80 to 82 on
+  `/login` — a real but small gain, because a _first_ visit (which is what Lighthouse
+  measures) downloads the same total bytes either way; the win is deploy-to-deploy
+  browser caching, which a single synthetic Lighthouse run can't reflect.
+- **Lighthouse performance score on `/login`: 82/100 (target was ≥90), accessibility:
+  98/100.** Documenting this honestly rather than chasing the last few points: the
+  Lighthouse trace itself (`render-blocking-insight` audit) attributes only ~315ms of
+  the ~1650ms estimated savings to a literal render-blocking resource (the main CSS
+  file); Total Blocking Time is already 0ms, and FCP/LCP land around 3.5-3.7s purely
+  from JS download+parse+execute under Lighthouse's default 4x-CPU-throttled mobile
+  simulation. This is the architectural cost of a client-side-rendered React SPA with
+  no server-side rendering or static prerendering — SPEC.md's stack (Vite+React SPA,
+  no Next.js/Remix-style SSR) doesn't include an SSR layer, and adding one now would
+  be a stack change far outside a "polish" pass. Two concrete, measured optimizations
+  were applied (route splitting, vendor chunking); further gains would require either
+  SSR/prerendering or shipping less JS overall (e.g. replacing `recharts` or
+  `html5-qrcode` with lighter alternatives), both bigger changes than this phase's
+  scope. Real-world impact is smaller than the synthetic score suggests: on repeat
+  visits (the common case for staff logging in daily) all vendor chunks and fonts are
+  browser-cached, and Lighthouse's throttling profile is deliberately pessimistic
+  versus typical hardware.
+- **Full verification before commit**: `pnpm -r build`, `pnpm -r lint`, and
+  `pnpm --filter @halaqat/api test` (42/42 passing) all re-run clean after the
+  code-splitting and `manualChunks` changes, since neither had been re-verified
+  since Phase 10's last full pass.
+
 _(Further entries appended as later phases land.)_

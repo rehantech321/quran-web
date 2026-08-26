@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { Card, SkeletonText, StatusChip } from "@/components/ui";
+import { Card, EmptyState, SkeletonText, StatusChip } from "@/components/ui";
 import { useStudentsByCircle } from "@/queries/students";
 
 export function StudentsTab({ circleId }: { circleId: string }) {
@@ -10,7 +10,13 @@ export function StudentsTab({ circleId }: { circleId: string }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Link
+          to={`/app/circles/${circleId}/print`}
+          className="inline-flex h-9 items-center rounded-lg border border-cream-200 bg-cream-50 px-3 text-xs font-medium text-ink-900"
+        >
+          {t("common.print")}
+        </Link>
         <Link
           to={`/app/students/new?circleId=${circleId}`}
           className="inline-flex h-9 items-center rounded-lg bg-primary-900 px-3 text-xs font-medium text-cream-50"
@@ -26,9 +32,7 @@ export function StudentsTab({ circleId }: { circleId: string }) {
       )}
 
       {!isLoading && students?.length === 0 && (
-        <Card className="p-6 text-center text-sm text-ink-600">
-          {t("common.noResults")}
-        </Card>
+        <EmptyState title={t("common.noResults")} />
       )}
 
       <div className="flex flex-col gap-2">

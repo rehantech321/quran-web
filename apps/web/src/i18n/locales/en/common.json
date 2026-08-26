@@ -23,7 +23,11 @@
     "copied": "Copied",
     "print": "Print",
     "share": "Share",
-    "optional": "optional"
+    "optional": "optional",
+    "retry": "Retry",
+    "offline": "No internet connection",
+    "pageNotFound": "Page not found",
+    "backHome": "Back to home"
   },
   "auth": {
     "identifier": "Email or phone",

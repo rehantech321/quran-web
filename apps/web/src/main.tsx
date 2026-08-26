@@ -10,6 +10,7 @@ import "@fontsource/inter/600.css";
 
 import "./i18n";
 import "./styles/index.css";
+import "./styles/print.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";

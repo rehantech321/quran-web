@@ -22,4 +22,21 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split stable, rarely-changing vendor code from app code so browsers can
+        // cache it across deploys, and so the initial /login chunk (which pulls in
+        // ToastProvider -> framer-motion at the App root) isn't inflated by
+        // libraries only some routes need (react-query, i18next, zod/rhf).
+        manualChunks: {
+          "vendor-react": ["react", "react-dom", "react-router-dom"],
+          "vendor-query": ["@tanstack/react-query", "axios", "zustand"],
+          "vendor-i18n": ["i18next", "react-i18next", "i18next-browser-languagedetector"],
+          "vendor-forms": ["react-hook-form", "@hookform/resolvers", "zod"],
+          "vendor-motion": ["framer-motion"],
+        },
+      },
+    },
+  },
 });
