@@ -1,0 +1,11 @@
+{
+  "app": {
+    "title": "Halaqat Jami' Al-Siddiq"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "language": "Language"
+  }
+}

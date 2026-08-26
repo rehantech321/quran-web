@@ -1,0 +1,39 @@
+/*
+ * Default org palette (Jami' Al-Siddiq). An org's `theme` record can override
+ * a subset of these at runtime by injecting inline custom properties onto
+ * :root (see ThemeProvider) — every other token still falls back to this file.
+ */
+:root {
+  /* Core mosque green — from the logo */
+  --c-primary-950: #06251c;
+  --c-primary-900: #0b3b2e;
+  --c-primary-800: #10473a;
+  --c-primary-700: #14523f;
+  --c-primary-600: #1b6b52;
+  --c-primary-500: #24856a;
+
+  /* Sage — the calligraphy green in the logo */
+  --c-sage-400: #7fb98a;
+  --c-sage-300: #9ccba0;
+  --c-sage-100: #dcefdf;
+
+  /* Gold — the crescent */
+  --c-gold-600: #a8842f;
+  --c-gold-500: #c8a24a;
+  --c-gold-400: #e0b057;
+  --c-gold-100: #f6ebd2;
+
+  /* Neutrals — warm cream, never pure white */
+  --c-cream-50: #fbf9f4;
+  --c-cream-100: #f7f4ec;
+  --c-cream-200: #efeadd;
+  --c-ink-900: #14201b;
+  --c-ink-600: #4a5b53;
+  --c-ink-400: #8a9891;
+
+  /* Semantic */
+  --c-success: #2e7d5b;
+  --c-danger: #b3261e;
+  --c-warning: #c77700;
+  --c-info: #2a6f97;
+}
