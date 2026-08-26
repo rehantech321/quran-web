@@ -27,7 +27,10 @@ void i18n
     ns: ["common"],
     interpolation: { escapeValue: false },
     detection: {
-      order: ["localStorage", "navigator"],
+      // No "navigator" — SPEC.md §0: Arabic is the default for every visitor
+      // regardless of browser/OS locale. English only applies after the user
+      // explicitly flips the in-app toggle, which persists here.
+      order: ["localStorage"],
       caches: ["localStorage"],
       lookupLocalStorage: "halaqat_language",
     },

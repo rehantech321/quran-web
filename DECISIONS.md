@@ -276,4 +276,45 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   config into each record at write time (Phase 3), so no new "as-of" config
   resolution was needed here.
 
+## Phase 8 — Design system in React
+
+- **Found and fixed a real i18n bug via the browser check**: the language detector's
+  `order` included `"navigator"`, so a visitor with an English browser/OS locale got
+  the English UI on first load — contradicting SPEC.md §0 ("Arabic with full RTL...
+  English is a secondary language via a toggle"). Every visitor should see Arabic by
+  default regardless of browser locale, switching to English only through the
+  in-app toggle (which persists to `localStorage`). Fixed by dropping `"navigator"`
+  from `detection.order`, leaving only `localStorage` (falling through to
+  `fallbackLng: "ar"` when empty). Caught by actually driving the app in a headless
+  browser rather than just reading the config — the bug wasn't visible from the code
+  alone since `fallbackLng: "ar"` looked correct in isolation.
+- **`ThemeProvider` derives an org's full color ramp from just 3 base colors via CSS
+  `color-mix()`**, not a hex-math library. `Organization.theme` only stores
+  `primary`/`accent`/`sage` (SPEC.md §4), but Tailwind classes throughout reference a
+  6-step scale per color family (`primary-950`...`primary-500`, etc.). Setting only
+  the base token (`--c-primary-900`, `--c-gold-500`, `--c-sage-400`) and defining the
+  rest as `color-mix(in srgb, var(--c-primary-900) 85%, white)`-style expressions
+  means a mosque only ever picks 3 colors, and every existing utility class still
+  resolves sensibly — no per-org shade design needed, and no new dependency for
+  color math. Requires a browser with `color-mix()` support (all evergreen browsers
+  in 2026); the _default_ palette in `theme.css` stays flat hex and is untouched by
+  this, so the untouched-org case has zero compatibility risk.
+- **`AppShell` takes `navItems` as a prop rather than hardcoding role-specific
+  navigation** — the supervisor and student apps need different tab bars
+  (SPEC.md §2.5), and the shell itself has no business knowing about roles; that
+  wiring happens where each app's routes are defined (Phase 9/10).
+- **`StatusChip` ships a small fixed set of built-in glyphs (check/cross/clock/dash/
+  info) keyed by `tone`**, not an icon-library dependency — no icon package was
+  declared in the scaffold, and the handful of states this app actually needs
+  (success/danger/warning/info/neutral) don't justify adding one now.
+- **`Select` wraps a native `<select>`** rather than building a custom listbox —
+  native selects are accessible, RTL-correct, and touch-friendly for free; SPEC.md
+  doesn't ask for anything a native select can't do (no multi-select, no search).
+- **Verified visually, not just by build/lint passing**: launched the Vite dev
+  server and drove it with Playwright (no project-specific run skill existed yet,
+  and `chromium-cli` wasn't available in this environment) to screenshot both the
+  home page and `/dev/kitchen-sink` and check the browser console for errors — this
+  is what caught the i18n default-language bug above; a type-check alone would have
+  missed it.
+
 _(Further entries appended as later phases land.)_
