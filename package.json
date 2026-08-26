@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "seed": "pnpm --filter @halaqat/api seed",
     "recompute-points": "pnpm --filter @halaqat/api recompute-points",
+    "create-org": "pnpm --filter @halaqat/api create-org",
     "prepare": "husky"
   },
   "devDependencies": {

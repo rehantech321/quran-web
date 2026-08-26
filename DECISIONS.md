@@ -470,4 +470,31 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   code-splitting and `manualChunks` changes, since neither had been re-verified
   since Phase 10's last full pass.
 
-_(Further entries appended as later phases land.)_
+## Phase 12 — Docs
+
+- **Wrote `apps/api/src/scripts/createOrg.ts` rather than leaving tenant onboarding
+  as a manual mongosh procedure in HANDOVER.md.** There's no API route to create an
+  org/first-admin — every existing user-creation route requires an already
+  authenticated admin, which a new tenant doesn't have yet — so onboarding a second
+  mosque was otherwise undocumented in any runnable form. The script only inserts
+  (never wipes, unlike `seed.ts`) and refuses to run if the requested `ORG_SLUG`
+  already exists, so it's safe against a database that already holds other tenants'
+  data. Verified end-to-end against a throwaway `mongodb-memory-server` replica set:
+  ran once successfully (prints the new org/admin ids), then ran again with the same
+  slug and confirmed it fails closed with a clear "already exists" error rather than
+  silently duplicating or overwriting.
+- **README's Test section and HANDOVER.md both call out the missing frontend test
+  suite explicitly**, rather than letting `pnpm test`'s all-green output imply full
+  coverage. SPEC.md's tech table lists Vitest + RTL for the frontend, but no
+  component tests were ever written — every screen was instead verified manually
+  against a live seeded backend during each phase (documented throughout this file).
+  Silently shipping docs that don't mention this would leave whoever picks this up
+  next to discover the gap the hard way.
+- **HANDOVER.md's "known limitations" section is the single honest summary of every
+  documented gap across Phases 1–11** (no frontend tests, Lighthouse performance at
+  82 not ≥90, no file upload, no CI pipeline) rather than scattering "revisit this"
+  notes only in per-phase entries above — the goal is that someone picking up this
+  project reads one section and knows exactly where the edges are, without having to
+  read the entire decisions log front to back.
+
+_(All 12 phases complete.)_

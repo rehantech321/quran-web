@@ -10,7 +10,8 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest run --passWithNoTests",
     "seed": "tsx src/scripts/seed.ts",
-    "recompute-points": "tsx src/scripts/recomputePoints.ts"
+    "recompute-points": "tsx src/scripts/recomputePoints.ts",
+    "create-org": "tsx src/scripts/createOrg.ts"
   },
   "dependencies": {
     "@halaqat/shared": "workspace:*",

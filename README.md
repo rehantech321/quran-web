@@ -4,9 +4,11 @@ A multi-tenant Quran memorization circles (halaqat) management system: attendanc
 weekly grades, weekly questions, weekly tasks, points, and reporting — built for
 mosques, in Arabic-first RTL with an English toggle.
 
-Status: **in active development.** See [DECISIONS.md](./DECISIONS.md) for the
-reasoning behind non-obvious choices, and [SPEC.md](./SPEC.md) for the full product
-and technical spec this build follows.
+Status: **all 12 build phases complete** (scaffold through docs). See
+[DECISIONS.md](./DECISIONS.md) for the reasoning behind non-obvious choices,
+[SPEC.md](./SPEC.md) for the full product and technical spec this build follows, and
+[HANDOVER.md](./HANDOVER.md) for onboarding a new mosque tenant and an honest list of
+what's out of scope for this build.
 
 ## Stack
 
@@ -67,8 +69,6 @@ pnpm dev:web
 
 ## Seed sample data
 
-Once the data layer and seed script land (Phase 2+):
-
 ```bash
 pnpm seed
 ```
@@ -92,8 +92,14 @@ pnpm recompute-points
 pnpm test
 ```
 
-Runs Vitest across all workspaces — Supertest-driven API tests and React Testing
-Library component tests.
+Runs Vitest across all workspaces. Today that means **42 Supertest-driven API tests**
+(`apps/api`) covering the points engine (reversal, timezone boundaries, one-per-day
+rules, approve/reject lifecycles), auth, org-scoping, and cross-tenant access checks —
+all passing against a real `mongodb-memory-server` replica set (transactions require
+one; see Prerequisites). `apps/web` has no committed Vitest/RTL suite yet — every
+screen was instead verified manually against a live seeded backend with Playwright
+during development (see DECISIONS.md's per-phase entries). Adding a frontend
+component-test suite is the main testing gap; see HANDOVER.md.
 
 ## Lint / format
 
@@ -115,5 +121,6 @@ A Husky pre-commit hook runs lint-staged (ESLint + Prettier) on staged files.
 
 ## Onboarding a second mosque
 
-Every record is scoped to an `Organization`. See `HANDOVER.md` (added in the final
-phase) for the step-by-step process of provisioning a new tenant.
+Every record is scoped to an `Organization`. See [HANDOVER.md](./HANDOVER.md) for the
+step-by-step process of provisioning a new tenant, plus a full list of known
+limitations and suggested next steps.
