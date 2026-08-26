@@ -244,4 +244,36 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   submissions). It's meaningful for `GET /tasks/mine`'s active/completed split
   instead, which is the actual per-student view.
 
+## Phase 7 — Reports API
+
+- **`GET /students/:id/report` and `GET /reports/student/:id` are the same
+  endpoint under two paths.** SPEC.md §6 lists both (once under the students
+  section, once under reports), which reads like the same "full report payload"
+  requirement stated twice rather than two different payloads. Both routes call the
+  identical `getStudentReport` service function, verified by a test that asserts
+  they return the same student id.
+- **PDF export is a plain, unbranded table layout (pdfkit), not a styled document.**
+  SPEC.md §6 asks for CSV/PDF export without specifying a design, and this app
+  already has a dedicated polished print surface — the QR-card sheet (Phase 11's
+  print stylesheet). Spending design effort on a second, redundant "pretty PDF" for
+  a data export wasn't worth it; this one exists to get the numbers into a portable
+  file, not to look good.
+- **Circle report's per-student "attendance rate" counts `present` + `late` as
+  attended, `absent`/`excused` as not** — matches the spec's intent that `late`
+  still means the student showed up (it just costs points), while `excused` is
+  explicitly a non-penalized absence rather than attendance.
+- **Leaderboard periods (`week`/`month`/`term`) are fixed rolling windows** (7/30/90
+  days from now), computed by summing `PointsLedger` entries in that window — SPEC.md
+  §6 names the periods without defining their boundaries, and there's no
+  "academic term" concept anywhere else in the data model to derive `term` from, so
+  90 days was chosen as a reasonable stand-in. `all` skips the ledger aggregation
+  entirely and just sorts by `Student.totalPoints` (the already-current cache), which
+  is both correct and cheaper.
+- **`GET /reports/circle/:id`'s date-range filter (`from`/`to`) only affects
+  `totalPoints`, attendance, grades, question, and task rows — never the org/circle
+  config used to interpret them** (e.g. today's `pointsConfig`, not whatever it was
+  historically) — consistent with how the points engine already snapshots resolved
+  config into each record at write time (Phase 3), so no new "as-of" config
+  resolution was needed here.
+
 _(Further entries appended as later phases land.)_

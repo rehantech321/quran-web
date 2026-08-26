@@ -11,6 +11,7 @@ import {
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
+import { getStudentReport } from "../services/report.service.js";
 import {
   createStudent,
   deleteStudent,
@@ -153,6 +154,22 @@ export function createStudentsRouter() {
         query,
       );
       res.json({ success: true, data: history });
+    },
+  );
+
+  router.get(
+    "/students/:id/report",
+    validateParams(studentIdParamSchema),
+    async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
+      const report = await getStudentReport(req.user!.organizationId, req.params.id!);
+      res.json({ success: true, data: report });
     },
   );
 

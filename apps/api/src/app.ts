@@ -15,6 +15,7 @@ import { createCirclesRouter } from "@/routes/circles.routes.js";
 import { createGradesRouter } from "@/routes/grades.routes.js";
 import { createOrganizationsRouter } from "@/routes/organizations.routes.js";
 import { createQuestionsRouter } from "@/routes/questions.routes.js";
+import { createReportsRouter } from "@/routes/reports.routes.js";
 import { createStudentAccessRouter } from "@/routes/studentAccess.routes.js";
 import { createStudentsRouter } from "@/routes/students.routes.js";
 import { createTasksRouter } from "@/routes/tasks.routes.js";
@@ -47,6 +48,7 @@ export function createApp() {
   app.use("/api/v1/grades", createGradesRouter());
   app.use("/api/v1/questions", createQuestionsRouter());
   app.use("/api/v1/tasks", createTasksRouter());
+  app.use("/api/v1/reports", createReportsRouter());
   // Mounted at the bare /api/v1 prefix (it defines its own full paths —
   // /circles/:id/students, /students, /students/:id, ... — since SPEC.md §6
   // nests student listing under circles but everything else under /students
@@ -58,8 +60,6 @@ export function createApp() {
   // (e.g. a student token hitting /questions/active got swallowed here and
   // rejected, since this router only accepts staff tokens).
   app.use("/api/v1", createStudentsRouter());
-
-  // Reports routers are mounted here starting Phase 7.
 
   app.use((_req, res) => {
     res
