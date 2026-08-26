@@ -9,13 +9,14 @@ import {
   updateStudentSchema,
 } from "@halaqat/shared";
 
-import { requireAuth, requireRole } from "../middleware/auth.js";
+import { requireAuth, requireRole, requireStudentAuth } from "../middleware/auth.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 import { getStudentReport } from "../services/report.service.js";
 import {
   createStudent,
   deleteStudent,
   generateStudentQrPng,
+  getMyStudentProfile,
   getStudent,
   getStudentPointsHistory,
   listStudentsByCircle,
@@ -26,6 +27,32 @@ import { assertSupervisorOwnsCircle } from "./shared/assertSupervisorOwnsCircle.
 
 export function createStudentsRouter() {
   const router = Router();
+
+  // Student-scoped: registered before the staff-only gate below (same
+  // rationale as questions/tasks routers — see DECISIONS.md Phase 6).
+  router.get("/students/me", requireStudentAuth, async (req, res) => {
+    const profile = await getMyStudentProfile(
+      req.student!.organizationId,
+      req.student!.id,
+    );
+    res.json({ success: true, data: profile });
+  });
+
+  router.get(
+    "/students/me/points-history",
+    requireStudentAuth,
+    validateQuery(pointsHistoryQuerySchema),
+    async (req, res) => {
+      const query = req.query as unknown as z.infer<typeof pointsHistoryQuerySchema>;
+      const history = await getStudentPointsHistory(
+        req.student!.organizationId,
+        req.student!.id,
+        query,
+      );
+      res.json({ success: true, data: history });
+    },
+  );
+
   router.use(requireAuth);
 
   router.get(
@@ -136,6 +163,13 @@ export function createStudentsRouter() {
     "/students/:id/qr.png",
     validateParams(studentIdParamSchema),
     async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
       const png = await generateStudentQrPng(req.user!.organizationId, req.params.id!);
       res.setHeader("Content-Type", "image/png");
       res.send(png);
@@ -147,6 +181,13 @@ export function createStudentsRouter() {
     validateParams(studentIdParamSchema),
     validateQuery(pointsHistoryQuerySchema),
     async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
       const query = req.query as unknown as z.infer<typeof pointsHistoryQuerySchema>;
       const history = await getStudentPointsHistory(
         req.user!.organizationId,

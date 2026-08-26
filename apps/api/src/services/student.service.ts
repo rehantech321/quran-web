@@ -11,6 +11,7 @@ import { NotFoundError, ValidationError } from "../errors.js";
 import { Circle } from "../models/Circle.js";
 import { PointsLedger } from "../models/PointsLedger.js";
 import { Student } from "../models/Student.js";
+import { User } from "../models/User.js";
 import { generateStudentAccessSlug } from "../utils/slug.js";
 
 async function assertCircleInOrg(organizationId: string, circleId: string) {
@@ -109,6 +110,29 @@ export async function generateStudentQrPng(
 ) {
   const student = await getStudent(organizationId, studentId);
   return QRCode.toBuffer(student.barcodeValue, { type: "png", width: 512, margin: 2 });
+}
+
+/**
+ * Student-scoped "me" profile: the plain student record from student-access
+ * only carries circleId, not the circle's name or supervisor — the student
+ * Profile screen (SPEC.md §7 screen 17) needs both, so this resolves them.
+ */
+export async function getMyStudentProfile(organizationId: string, studentId: string) {
+  const student = await getStudent(organizationId, studentId);
+  const circle = await Circle.findOne({ _id: student.circleId, organizationId }).lean();
+  const supervisor = circle
+    ? await User.findOne({ _id: circle.supervisorId, organizationId }).lean()
+    : null;
+
+  return {
+    id: student._id,
+    fullName: student.fullName,
+    photoUrl: student.photoUrl,
+    totalPoints: student.totalPoints,
+    pointsBreakdown: student.pointsBreakdown,
+    circle: circle ? { id: circle._id, name: circle.name } : null,
+    supervisorName: supervisor?.fullName,
+  };
 }
 
 export async function getStudentPointsHistory(

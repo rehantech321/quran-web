@@ -1,7 +1,8 @@
 import { createBrowserRouter } from "react-router-dom";
 
-import { StaffProtectedRoute } from "@/components/ProtectedRoute";
+import { StaffProtectedRoute, StudentProtectedRoute } from "@/components/ProtectedRoute";
 import { StaffLayout } from "@/layouts/StaffLayout";
+import { StudentLayout } from "@/layouts/StudentLayout";
 import { Home } from "@/pages/Home";
 import { KitchenSink } from "@/pages/dev/KitchenSink";
 import { ApprovalsQueue } from "@/pages/staff/ApprovalsQueue";
@@ -13,11 +14,18 @@ import { ScanBarcode } from "@/pages/staff/ScanBarcode";
 import { ScanCirclePicker } from "@/pages/staff/ScanCirclePicker";
 import { Settings } from "@/pages/staff/Settings";
 import { StudentForm } from "@/pages/staff/StudentForm";
+import { MyTasks } from "@/pages/student/MyTasks";
+import { PointsHistory } from "@/pages/student/PointsHistory";
+import { Profile } from "@/pages/student/Profile";
+import { StudentAccessResolver } from "@/pages/student/StudentAccessResolver";
+import { StudentDashboard } from "@/pages/student/StudentDashboard";
+import { WeeklyQuestion } from "@/pages/student/WeeklyQuestion";
 
 export const router = createBrowserRouter([
   { path: "/", element: <Home /> },
   { path: "/login", element: <Login /> },
   { path: "/dev/kitchen-sink", element: <KitchenSink /> },
+  { path: "/student/:slug", element: <StudentAccessResolver /> },
   {
     path: "/app",
     element: (
@@ -35,6 +43,21 @@ export const router = createBrowserRouter([
       { path: "approvals", element: <ApprovalsQueue /> },
       { path: "reports", element: <Reports /> },
       { path: "settings", element: <Settings /> },
+    ],
+  },
+  {
+    path: "/student",
+    element: (
+      <StudentProtectedRoute>
+        <StudentLayout />
+      </StudentProtectedRoute>
+    ),
+    children: [
+      { index: true, element: <StudentDashboard /> },
+      { path: "points-history", element: <PointsHistory /> },
+      { path: "question", element: <WeeklyQuestion /> },
+      { path: "tasks", element: <MyTasks /> },
+      { path: "profile", element: <Profile /> },
     ],
   },
 ]);

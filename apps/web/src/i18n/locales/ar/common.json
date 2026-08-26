@@ -32,6 +32,11 @@
     "loginError": "بيانات الدخول غير صحيحة",
     "logout": "تسجيل الخروج"
   },
+  "studentAuth": {
+    "invalidLink": "هذا الرابط غير صالح أو منتهي الصلاحية",
+    "enterPin": "الرجاء إدخال رمز PIN المكوّن من 4 أرقام",
+    "wrongPin": "رمز PIN غير صحيح"
+  },
   "nav": {
     "circles": "الحلقات",
     "scan": "المسح",
@@ -176,6 +181,57 @@
     "totalPoints": "مجموع النقاط",
     "rank": "الترتيب",
     "studentCount": "عدد الطلاب"
+  },
+  "ledger": {
+    "attendance": {
+      "present": "حضور",
+      "late": "تأخير",
+      "absent": "غياب",
+      "excused": "عذر"
+    },
+    "grade": {
+      "recorded": "درجة أسبوعية"
+    },
+    "question": {
+      "correct": "إجابة صحيحة على السؤال الأسبوعي"
+    },
+    "task": {
+      "approved": "اعتماد مهمة"
+    },
+    "reversal": "تصحيح"
+  },
+  "studentDashboard": {
+    "circle": "الحلقة",
+    "totalPoints": "مجموع النقاط",
+    "attendanceSubtotal": "نقاط الحضور",
+    "gradesSubtotal": "نقاط الدرجات",
+    "questionsSubtotal": "نقاط الأسئلة",
+    "tasksSubtotal": "نقاط المهام"
+  },
+  "pointsHistory": {
+    "title": "سجل النقاط",
+    "empty": "لا يوجد سجل نقاط بعد",
+    "total": "الإجمالي"
+  },
+  "weeklyQuestion": {
+    "title": "السؤال الأسبوعي",
+    "noActive": "لا يوجد سؤال متاح حاليًا، عد الأسبوع القادم!",
+    "submit": "إرسال الإجابة",
+    "correct": "إجابة صحيحة!",
+    "incorrect": "إجابة غير صحيحة",
+    "earnedPoints": "حصلت على {{points}} نقطة"
+  },
+  "myTasks": {
+    "active": "نشطة",
+    "completed": "مكتملة",
+    "markInProgress": "بدء التنفيذ",
+    "markCompleted": "تم الإنجاز",
+    "addNote": "أضف ملاحظة (اختياري)",
+    "empty": "لا توجد مهام"
+  },
+  "profile": {
+    "title": "الملف الشخصي",
+    "supervisor": "المشرف"
   },
   "settings": {
     "orgBranding": "هوية المسجد",

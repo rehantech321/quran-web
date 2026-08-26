@@ -175,6 +175,16 @@ export interface Organization {
   requireStudentPin: boolean;
 }
 
+export interface MyStudentProfile {
+  id: string;
+  fullName: string;
+  photoUrl?: string;
+  totalPoints: number;
+  pointsBreakdown: PointsBreakdown;
+  circle: { id: string; name: string } | null;
+  supervisorName?: string;
+}
+
 export interface StaffMember {
   id: string;
   organizationId: string;

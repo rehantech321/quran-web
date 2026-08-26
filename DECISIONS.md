@@ -379,4 +379,41 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   card, the scan screen's manual-entry fallback, reports, settings, and the
   approvals queue — all with zero browser console errors after the two fixes above.
 
+## Phase 10 — Student app
+
+- **Found and fixed a real bug via the browser check**: `WeeklyQuestion` checked
+  `if (!question) return <no-active-question>` _before_ checking whether a `result`
+  was available to show. Answering a question invalidates the active-question query
+  (correctly — the student has now answered it), which refetches and resolves to
+  `null`; that null hit the `!question` branch first and silently replaced the
+  correct/incorrect result card with "no question available" before the student ever
+  saw whether they got it right. Fixed by checking `result` first, independent of
+  `question`'s current (post-answer) value — verified by actually answering a
+  freshly-created question in a live browser and confirming the green-checkmark
+  result card renders and stays visible.
+- **Added `GET /students/me` and `GET /students/me/points-history`** (student-scoped,
+  same registration-before-the-staff-gate pattern as Phase 6's questions/tasks
+  routers) — the student-access resolve/verify-pin responses only ever carried
+  `circleId`, not the circle's name or supervisor, but SPEC.md §7 screen 17's Profile
+  needs both. `getMyStudentProfile` resolves them server-side rather than the
+  frontend making extra calls to endpoints it has no permission to reach (`/circles/:id`
+  is staff-only).
+- **While adding those, found and fixed a real authorization gap**: `GET
+/students/:id/qr.png` and `GET /students/:id/points-history` were missing the
+  `assertSupervisorOwnsCircle` check every other student route has — a supervisor
+  could fetch _any_ student's QR code (which encodes their private-link slug — the
+  same secret that bootstraps their session) or points history within the org, not
+  just their own circle's students. Fixed alongside the new routes since it's the
+  same file and the same pattern.
+- **No dedicated "past questions" history list on the Weekly Question screen** —
+  SPEC.md §7 screen 15 asks for one, but there's no backend endpoint returning a
+  student's answered-question history (only the single _active_ one). Out of scope
+  for this pass; `GET /students/:id/points-history` already surfaces "correct answer"
+  ledger entries chronologically, which covers the same information in the Points
+  History screen instead.
+- **Verified all 5 student screens end-to-end against a live seeded backend**,
+  including a targeted follow-up test that created a fresh question via the API and
+  drove the actual answer flow in a browser (since every seeded student had already
+  answered all seeded questions) — this is what caught the result-card bug above.
+
 _(Further entries appended as later phases land.)_
