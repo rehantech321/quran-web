@@ -20,7 +20,17 @@ and technical spec this build follows.
 
 - Node.js 20+
 - pnpm (via Corepack: `corepack enable && corepack prepare pnpm@latest --activate`)
-- A MongoDB instance — local `mongod`, Docker, or a free MongoDB Atlas cluster
+- A MongoDB instance that supports multi-document transactions — the points engine
+  (SPEC.md §5) requires one. A standalone `mongod` does **not** support transactions;
+  it must run as a (single-node is fine) replica set:
+  ```bash
+  mongod --replSet rs0 --dbpath /path/to/data
+  # then, once, in a mongosh connected to it:
+  rs.initiate()
+  ```
+  MongoDB Atlas clusters are always replica sets, so this only matters for local dev.
+  Docker: `docker run -p 27017:27017 mongo --replSet rs0` (then run `rs.initiate()` once
+  via `mongosh` or `docker exec`).
 
 ## Install
 
