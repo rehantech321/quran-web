@@ -65,6 +65,9 @@ importers:
       express:
         specifier: ^4.19.2
         version: 4.22.2(supports-color@7.2.0)
+      express-async-errors:
+        specifier: ^3.1.1
+        version: 3.1.1(express@4.22.2(supports-color@7.2.0))
       express-rate-limit:
         specifier: ^7.4.0
         version: 7.5.1(express@4.22.2(supports-color@7.2.0))
@@ -77,6 +80,9 @@ importers:
       mongoose:
         specifier: ^8.5.2
         version: 8.24.4(supports-color@7.2.0)
+      ms:
+        specifier: ^2.1.3
+        version: 2.1.3
       multer:
         specifier: ^1.4.5-lts.1
         version: 1.4.5-lts.2
@@ -111,6 +117,9 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.6
         version: 9.0.10
+      '@types/ms':
+        specifier: ^0.7.34
+        version: 0.7.34
       '@types/multer':
         specifier: ^1.4.11
         version: 1.4.13
@@ -1035,6 +1044,9 @@ packages:
   '@types/mime@1.3.5':
     resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
 
+  '@types/ms@0.7.34':
+    resolution: {integrity: sha512-nG96G3Wp6acyAgJqGasjODb+acrI7KltPiRxzHPXnP3NgI28bpQDRv53olbqGXbfcgF5aiiHmO3xpwEpS5Ld9g==}
+
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
@@ -1881,6 +1893,11 @@ packages:
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
+
+  express-async-errors@3.1.1:
+    resolution: {integrity: sha512-h6aK1da4tpqWSbyCa3FxB/V6Ehd4EEB15zyQq9qe75OZBp0krinNKuH4rAY+S/U/2I36vdLAUFSjQJ+TFmODng==}
+    peerDependencies:
+      express: ^4.16.2
 
   express-rate-limit@7.5.1:
     resolution: {integrity: sha512-7iN8iPMDzOMHPUYllBEsQdWVB6fPDMPqwjBaFrgr4Jgr/+okjvzAy+UHlYYL/Vs0OsOrMkwS6PJDkFlJwoxUnw==}
@@ -4190,6 +4207,8 @@ snapshots:
 
   '@types/mime@1.3.5': {}
 
+  '@types/ms@0.7.34': {}
+
   '@types/ms@2.1.0': {}
 
   '@types/multer@1.4.13':
@@ -5082,6 +5101,10 @@ snapshots:
       strip-final-newline: 3.0.0
 
   expect-type@1.4.0: {}
+
+  express-async-errors@3.1.1(express@4.22.2(supports-color@7.2.0)):
+    dependencies:
+      express: 4.22.2(supports-color@7.2.0)
 
   express-rate-limit@7.5.1(express@4.22.2(supports-color@7.2.0)):
     dependencies:

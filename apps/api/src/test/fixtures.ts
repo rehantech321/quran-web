@@ -19,12 +19,15 @@ export async function createTestOrg(
   });
 }
 
+export const TEST_PASSWORD = "Test@12345";
+
 export async function createTestSupervisor(organizationId: Types.ObjectId) {
   return User.create({
     organizationId,
     fullName: "مشرف الاختبار",
     email: `supervisor-${new Types.ObjectId().toHexString()}@test.local`,
-    passwordHash: await hashPassword("Test@12345"),
+    phone: `+9665${Math.floor(10000000 + Math.random() * 89999999)}`,
+    passwordHash: await hashPassword(TEST_PASSWORD),
     role: "supervisor",
   });
 }

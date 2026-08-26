@@ -117,4 +117,50 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   always matches `recomputeStudentPoints`), and running it against a real replica set
   took ~15s for the full org (30 students × 6 weeks + 4 questions + 3 tasks).
 
+## Phase 4 — Auth
+
+- **Routers are factory functions (`createAuthRouter()`, `createStudentAccessRouter()`),
+  not module-level singletons**, specifically so each `express-rate-limit` instance
+  lives inside the router closure and gets recreated fresh every time `createApp()`
+  runs. A module-level `const limiter = rateLimit(...)` would be a singleton shared by
+  every `createApp()` call in the process — harmless in production (one instance ever),
+  but it broke test isolation: two different Supertest `app` instances were secretly
+  sharing one rate-limit counter, so an earlier test's requests silently ate into a
+  later test's budget. Found this via a failing rate-limit test before it could become
+  a source of flaky CI.
+- **Refresh tokens are stateless JWTs with no DB-tracked revocation list.** Logout
+  clears the cookie client-side; there's no server-side "kill all sessions for this
+  user" yet. Acceptable for now since nothing in SPEC.md §3/§6 asks for it, but if a
+  "force logout everywhere" admin action is ever needed, it requires either a
+  `tokenVersion` counter on `User` (bump it, and reject refresh tokens issued before
+  the bump) or a persisted denylist — flagging so it's not assumed to already exist.
+- **`assertOrgScope` throws 404, not 403, on a cross-tenant resource.** A 403 confirms
+  "this exists, you can't have it" — for a resource in a different mosque's data, even
+  that confirmation is a leak. 404 ("not found") is indistinguishable from the
+  resource genuinely not existing.
+- **Staff login tries every user matching the identifier across all orgs, not just
+  one.** `email`/`phone` are unique per-organization (`User`'s indexes), not globally,
+  and there's no subdomain-based tenant resolution yet (`Organization.slug` is
+  reserved for that per its SPEC.md comment) — so `POST /auth/login` can't know which
+  org to scope to ahead of time. It fetches every candidate with a matching
+  email-or-phone and bcrypt-compares the password against each, returning the first
+  match. Fine for early rollout (typically one tenant's data per environment); revisit
+  once multi-tenant subdomain routing exists.
+- **Student PIN flow: if `org.requireStudentPin` is on but a given student has no
+  `pin` set, the link mints a session directly** rather than blocking them out or
+  demanding they set one on the spot — SPEC.md §3 doesn't cover this edge case, and
+  refusing access because an admin forgot to set a PIN would be a worse failure mode
+  than skipping a check that was never configured for that student.
+- **`express-async-errors`** (a single side-effecting import in `app.ts`) patches
+  Express to forward rejected promises from `async` route handlers to the error
+  middleware automatically — chosen over hand-writing `try/catch` or an `asyncHandler`
+  wrapper in every route, since with ~20+ routes coming in Phases 5/6 that
+  boilerplate would dominate the route files. `errorHandler.ts` then centralizes every
+  domain-error → HTTP-status mapping in one place instead of scattering it per route.
+- **Login/refresh share one rate-limit budget (20/min); slug-lookup/verify-pin share
+  another (10/min)**, rather than each route having its own — both pairs are really
+  "prove you hold this credential" attempts against the same target, so splitting the
+  budget per-route would let an attacker get 2x the effective throughput by
+  alternating routes.
+
 _(Further entries appended as later phases land.)_

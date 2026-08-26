@@ -1,11 +1,16 @@
+import "express-async-errors";
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type NextFunction, type Request, type Response } from "express";
+import express from "express";
 import helmet from "helmet";
 import { pinoHttp } from "pino-http";
 
 import { env } from "@/config/env.js";
 import { logger } from "@/config/logger.js";
+import { errorHandler } from "@/middleware/errorHandler.js";
+import { createAuthRouter } from "@/routes/auth.routes.js";
+import { createStudentAccessRouter } from "@/routes/studentAccess.routes.js";
 
 export function createApp() {
   const app = express();
@@ -25,7 +30,11 @@ export function createApp() {
     res.json({ success: true, data: { status: "ok" } });
   });
 
-  // Feature routers are mounted here starting in Phase 4/5.
+  app.use("/api/v1/auth", createAuthRouter());
+  app.use("/api/v1/student-access", createStudentAccessRouter());
+
+  // Resource routers (organizations, circles, students, attendance, grades,
+  // questions, tasks, reports) are mounted here starting Phase 5/6.
 
   app.use((_req, res) => {
     res
@@ -33,14 +42,7 @@ export function createApp() {
       .json({ success: false, error: { code: "NOT_FOUND", message: "Not found" } });
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    logger.error({ err }, "Unhandled error");
-    res.status(500).json({
-      success: false,
-      error: { code: "INTERNAL_ERROR", message: "Something went wrong" },
-    });
-  });
+  app.use(errorHandler);
 
   return app;
 }
