@@ -32,6 +32,16 @@ export async function createTestSupervisor(organizationId: Types.ObjectId) {
   });
 }
 
+export async function createTestAdmin(organizationId: Types.ObjectId) {
+  return User.create({
+    organizationId,
+    fullName: "مدير الاختبار",
+    email: `admin-${new Types.ObjectId().toHexString()}@test.local`,
+    passwordHash: await hashPassword(TEST_PASSWORD),
+    role: "admin",
+  });
+}
+
 export async function createTestCircle(
   organizationId: Types.ObjectId,
   supervisorId: Types.ObjectId,

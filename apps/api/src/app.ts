@@ -10,7 +10,11 @@ import { env } from "@/config/env.js";
 import { logger } from "@/config/logger.js";
 import { errorHandler } from "@/middleware/errorHandler.js";
 import { createAuthRouter } from "@/routes/auth.routes.js";
+import { createCirclesRouter } from "@/routes/circles.routes.js";
+import { createOrganizationsRouter } from "@/routes/organizations.routes.js";
 import { createStudentAccessRouter } from "@/routes/studentAccess.routes.js";
+import { createStudentsRouter } from "@/routes/students.routes.js";
+import { createUsersRouter } from "@/routes/users.routes.js";
 
 export function createApp() {
   const app = express();
@@ -32,9 +36,16 @@ export function createApp() {
 
   app.use("/api/v1/auth", createAuthRouter());
   app.use("/api/v1/student-access", createStudentAccessRouter());
+  app.use("/api/v1/organizations", createOrganizationsRouter());
+  app.use("/api/v1/circles", createCirclesRouter());
+  app.use("/api/v1/users", createUsersRouter());
+  // Defines its own full paths (/circles/:id/students, /students, /students/:id, ...)
+  // rather than being namespaced under one prefix — SPEC.md §6 nests student
+  // listing under circles but everything else under /students directly.
+  app.use("/api/v1", createStudentsRouter());
 
-  // Resource routers (organizations, circles, students, attendance, grades,
-  // questions, tasks, reports) are mounted here starting Phase 5/6.
+  // Feature-area routers (attendance, grades, questions, tasks, reports) are
+  // mounted here starting Phase 6/7.
 
   app.use((_req, res) => {
     res

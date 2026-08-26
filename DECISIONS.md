@@ -163,4 +163,31 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   budget per-route would let an attacker get 2x the effective throughput by
   alternating routes.
 
+## Phase 5 — Core API (organizations, circles, students, QR)
+
+- **Added a `/users` route group for staff (admin/supervisor) management, even
+  though SPEC.md §6's explicit route list doesn't enumerate it.** The Settings
+  screen (§7, "supervisor management") and the seed script both need a way to
+  create/list/update staff accounts, and there's no other route for it. An admin can
+  only assign the `admin`/`supervisor` roles (never `super_admin`); a `super_admin`
+  can assign any role.
+- **`students.routes.ts` defines its own full paths** (`/circles/:id/students`,
+  `/students`, `/students/:id`, ...) and is mounted at the bare `/api/v1` prefix,
+  rather than being namespaced under one `app.use("/api/v1/students", ...)` —
+  SPEC.md §6 nests student _listing_ under `/circles/:id/students` but every other
+  student route directly under `/students`, so one flat router mirrors that instead
+  of forcing an artificial prefix split.
+- **A supervisor gets 404, not 403, on a circle/student they don't own** — same
+  reasoning as `assertOrgScope` in Phase 4: confirming "this circle exists, it's just
+  not yours" is itself information a supervisor from an unrelated circle shouldn't get
+  by guessing ids.
+- **Circle deletion (soft) is refused (409) while it has active students**, per
+  SPEC.md §6's `DELETE /circles/:id` comment — the caller must reassign or deactivate
+  students first; the API doesn't cascade-deactivate them automatically, since that's
+  a destructive side effect a human should decide on explicitly.
+- **QR codes are generated on demand** (`GET /students/:id/qr.png`, PNG via the
+  `qrcode` package, 512px, encoding `barcodeValue`) rather than pre-rendered and
+  stored — it's cheap to generate and this way a slug regeneration never leaves a
+  stale cached image behind.
+
 _(Further entries appended as later phases land.)_
