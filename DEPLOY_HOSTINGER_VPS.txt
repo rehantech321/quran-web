@@ -237,11 +237,16 @@ Fill in real production values:
 
      CORS_ORIGIN=https://yourdomain.com,https://www.yourdomain.com
      COOKIE_DOMAIN=yourdomain.com
+     WEB_BASE_URL=https://yourdomain.com
 
 Generate each of the three secrets with (run 3 times, paste one value
 into each *_SECRET line above):
 
      openssl rand -hex 32
+
+WEB_BASE_URL must be the real public domain, not localhost — it's what
+gets encoded into every student's printed QR code, so a phone scanning
+that code opens the right place.
 
 apps/web/.env doesn't need editing — leave VITE_API_BASE_URL unset
 (it defaults to /api/v1, which is correct once Nginx proxies /api on

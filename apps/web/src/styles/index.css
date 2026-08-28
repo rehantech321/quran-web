@@ -5,8 +5,11 @@
 @tailwind utilities;
 
 @layer base {
+  /* 18px, not the 16px default: every Tailwind text-* size is a rem multiple
+     of this, so bumping the root scales the whole app's type proportionally
+     — a supervisor-requested legibility pass, not a per-component change. */
   html {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   body {

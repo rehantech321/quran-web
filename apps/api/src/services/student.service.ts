@@ -7,6 +7,7 @@ import type {
   UpdateStudentInput,
 } from "@halaqat/shared";
 
+import { env } from "../config/env.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import { Circle } from "../models/Circle.js";
 import { PointsLedger } from "../models/PointsLedger.js";
@@ -103,13 +104,21 @@ export async function regenerateStudentSlug(
   return student;
 }
 
-/** Renders the student's QR code (their accessSlug) as a PNG buffer for printable cards. */
+/**
+ * Renders the student's QR code as a PNG buffer for printable cards. Encodes
+ * the full private-link URL — not the bare `barcodeValue` — so that scanning
+ * the printed card with an ordinary phone camera opens the student's page
+ * directly, instead of just showing plain text. The in-app attendance
+ * scanner still works against the same code: `scanAttendance` recovers the
+ * bare slug from a scanned URL before matching `barcodeValue`.
+ */
 export async function generateStudentQrPng(
   organizationId: string,
   studentId: Types.ObjectId | string,
 ) {
   const student = await getStudent(organizationId, studentId);
-  return QRCode.toBuffer(student.barcodeValue, { type: "png", width: 512, margin: 2 });
+  const url = `${env.WEB_BASE_URL}/student/${student.barcodeValue}`;
+  return QRCode.toBuffer(url, { type: "png", width: 512, margin: 2 });
 }
 
 /**

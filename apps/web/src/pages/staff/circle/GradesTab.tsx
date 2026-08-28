@@ -2,17 +2,26 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Card, Input, Select, SkeletonText } from "@/components/ui";
-import { getApiErrorMessage } from "@/lib/apiClient";
+import { getApiErrorMessage, isConflictError } from "@/lib/apiClient";
 import { useCreateGrade, useGrades } from "@/queries/grades";
 import { useStudentsByCircle } from "@/queries/students";
 
+/**
+ * Builds a plain local "YYYY-MM-DD" string for the native date input's
+ * default value. Deliberately avoids `.toISOString()` here — converting a
+ * local midnight `Date` to an ISO string shifts it to UTC, which rolls the
+ * calendar day backward for any positive UTC offset (e.g. Asia/Riyadh,
+ * UTC+3) and silently defaulted the picker to the wrong Saturday.
+ */
 function currentWeekOf(): string {
   const now = new Date();
   const day = now.getDay();
   const saturday = new Date(now);
   saturday.setDate(now.getDate() - ((day + 1) % 7));
-  saturday.setHours(0, 0, 0, 0);
-  return saturday.toISOString().slice(0, 10);
+  const year = saturday.getFullYear();
+  const month = String(saturday.getMonth() + 1).padStart(2, "0");
+  const date = String(saturday.getDate()).padStart(2, "0");
+  return `${year}-${month}-${date}`;
 }
 
 export function GradesTab({ circleId }: { circleId: string }) {
@@ -26,24 +35,42 @@ export function GradesTab({ circleId }: { circleId: string }) {
   const [grade, setGrade] = useState<number | "">("");
   const [points, setPoints] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
   const studentById = new Map((students ?? []).map((s) => [s._id, s.fullName]));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setFormError(null);
     if (!studentId || grade === "") return;
-    await createGrade.mutateAsync({
-      studentId,
-      circleId,
-      weekOf: new Date(weekOf).toISOString(),
-      grade: Number(grade),
-      points: points === "" ? undefined : Number(points),
-      notes: notes || undefined,
-    });
-    setStudentId("");
-    setGrade("");
-    setPoints("");
-    setNotes("");
+
+    // A cleared/invalid native date input yields "" here, which `new Date()`
+    // turns into an Invalid Date — guard it explicitly rather than letting
+    // `.toISOString()` throw synchronously and silently drop the submission
+    // (the surrounding form has no error boundary, so an uncaught throw here
+    // previously meant the "Save grade" button just... did nothing).
+    const weekOfDate = new Date(weekOf);
+    if (Number.isNaN(weekOfDate.getTime())) {
+      setFormError(t("grades.invalidWeek"));
+      return;
+    }
+
+    try {
+      await createGrade.mutateAsync({
+        studentId,
+        circleId,
+        weekOf: weekOfDate.toISOString(),
+        grade: Number(grade),
+        points: points === "" ? undefined : Number(points),
+        notes: notes || undefined,
+      });
+      setStudentId("");
+      setGrade("");
+      setPoints("");
+      setNotes("");
+    } catch {
+      // surfaced below via createGrade.isError
+    }
   }
 
   return (
@@ -99,9 +126,12 @@ export function GradesTab({ circleId }: { circleId: string }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          {createGrade.isError && (
+          {(formError || createGrade.isError) && (
             <p role="alert" className="text-sm text-danger">
-              {getApiErrorMessage(createGrade.error, t("common.error"))}
+              {formError ??
+                (isConflictError(createGrade.error)
+                  ? t("grades.alreadyRecorded")
+                  : getApiErrorMessage(createGrade.error, t("common.error")))}
             </p>
           )}
           <Button

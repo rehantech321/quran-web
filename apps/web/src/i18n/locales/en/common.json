@@ -154,7 +154,9 @@
     "saveGrade": "Save grade",
     "weekOf": "Week of",
     "addGrade": "Add grade",
-    "selectStudent": "Select student"
+    "selectStudent": "Select student",
+    "invalidWeek": "Please choose a valid week date",
+    "alreadyRecorded": "A grade for this student has already been recorded for this week"
   },
   "questions": {
     "questionText": "Question text",

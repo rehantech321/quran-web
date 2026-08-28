@@ -49,7 +49,21 @@ export function ScanBarcode() {
     async (barcodeValue: string) => {
       if (processingRef.current) return;
       processingRef.current = true;
-      scannerRef.current?.pause(true);
+      // `pause()`/`resume()` throw synchronously if the scanner isn't in the
+      // matching state — same html5-qrcode gotcha as `stop()` on unmount
+      // (see the cleanup effect below). This function is also called from
+      // manual entry, where the camera may never have started at all (no
+      // camera device, denied permission — exactly when manual entry is
+      // needed), so an unguarded `.pause()` here threw synchronously and,
+      // since it's ahead of the try/catch, silently dropped the whole submit:
+      // the attendance API call below was never even reached.
+      try {
+        if (scannerRef.current?.getState() === Html5QrcodeScannerState.SCANNING) {
+          scannerRef.current.pause(true);
+        }
+      } catch {
+        // not in a pausable state — nothing to pause
+      }
       setErrorMessage(null);
 
       try {
@@ -69,7 +83,13 @@ export function ScanBarcode() {
           setResult(null);
           setErrorMessage(null);
           processingRef.current = false;
-          scannerRef.current?.resume();
+          try {
+            if (scannerRef.current?.getState() === Html5QrcodeScannerState.PAUSED) {
+              scannerRef.current.resume();
+            }
+          } catch {
+            // not in a resumable state — nothing to resume
+          }
         }, RESULT_DISPLAY_MS);
       }
     },

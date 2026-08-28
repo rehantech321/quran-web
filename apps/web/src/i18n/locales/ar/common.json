@@ -154,7 +154,9 @@
     "saveGrade": "حفظ الدرجة",
     "weekOf": "أسبوع",
     "addGrade": "إضافة درجة",
-    "selectStudent": "اختر الطالب"
+    "selectStudent": "اختر الطالب",
+    "invalidWeek": "الرجاء اختيار تاريخ صحيح للأسبوع",
+    "alreadyRecorded": "تم تسجيل درجة لهذا الطالب في هذا الأسبوع من قبل"
   },
   "questions": {
     "questionText": "نص السؤال",

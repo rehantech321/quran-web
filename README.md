@@ -113,8 +113,10 @@ A Husky pre-commit hook runs lint-staged (ESLint + Prettier) on staged files.
 ## Deployment notes
 
 - **API** — Railway or Render. Set the same env vars as `apps/api/.env.example`;
-  point `MONGODB_URI` at your Atlas connection string and `CORS_ORIGIN` at the deployed
-  web origin.
+  point `MONGODB_URI` at your Atlas connection string, `CORS_ORIGIN` at the deployed
+  web origin, and **`WEB_BASE_URL` at that same deployed web origin** — it's what
+  gets embedded in every student's printed QR code, so it must be the real public
+  URL, not `localhost`.
 - **Web** — Vercel. Set `VITE_API_BASE_URL` to the deployed API's `/api/v1` URL.
 - **Database** — MongoDB Atlas (free tier is sufficient for a single small mosque;
   scale the cluster tier as tenants grow).

@@ -1,4 +1,24 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import PDFDocument from "pdfkit";
+
+// pdfkit's built-in "Helvetica"/"Helvetica-Bold" are the Adobe Standard 14
+// AFM fonts — Latin-only. Report data (student/circle names, in particular)
+// is routinely Arabic, and those glyphs simply don't exist in that font, so
+// they silently render as nothing rather than an error — the PDF "worked"
+// but Arabic text was invisible. Amiri is a real Unicode TTF with full
+// Arabic coverage; embedded here instead. `dist/assets` is populated by
+// `scripts/copy-assets.mjs` as part of the build (tsc doesn't copy non-.ts
+// files on its own).
+const fontsDir = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "assets",
+  "fonts",
+);
+const REGULAR_FONT = path.join(fontsDir, "Amiri-Regular.ttf");
+const BOLD_FONT = path.join(fontsDir, "Amiri-Bold.ttf");
 
 export interface PdfColumn {
   key: string;
@@ -24,15 +44,17 @@ export interface SimpleReportPdfInput {
 export function renderSimpleReportPdf(input: SimpleReportPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: "A4" });
+    doc.registerFont("Body", REGULAR_FONT);
+    doc.registerFont("Body-Bold", BOLD_FONT);
     const chunks: Buffer[] = [];
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(18).text(input.title, { align: "left" });
+    doc.font("Body-Bold").fontSize(18).text(input.title, { align: "left" });
     if (input.subtitle) {
       doc.moveDown(0.3);
-      doc.fontSize(10).fillColor("#555555").text(input.subtitle);
+      doc.font("Body").fontSize(10).fillColor("#555555").text(input.subtitle);
       doc.fillColor("#000000");
     }
     doc.moveDown(1);
@@ -41,7 +63,7 @@ export function renderSimpleReportPdf(input: SimpleReportPdfInput): Promise<Buff
     let y = doc.y;
     const rowHeight = 20;
 
-    doc.fontSize(10).font("Helvetica-Bold");
+    doc.fontSize(10).font("Body-Bold");
     let x = startX;
     for (const col of input.columns) {
       doc.text(col.header, x, y, { width: col.width });
@@ -54,7 +76,7 @@ export function renderSimpleReportPdf(input: SimpleReportPdfInput): Promise<Buff
       .strokeColor("#cccccc")
       .stroke();
 
-    doc.font("Helvetica");
+    doc.font("Body");
     for (const row of input.rows) {
       if (y > doc.page.height - 60) {
         doc.addPage();

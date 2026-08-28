@@ -545,4 +545,82 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   status-only assertions but broke a test asserting ledger sort order, since a scan
   followed by an edit landed on the exact same frozen instant.
 
+## Post-launch — bug reports from real usage (barcode, PDF, lateness, grades, type size)
+
+Five issues reported after real use of the deployed app. All five were real bugs (not
+misunderstandings), found and fixed by reading the actual code path rather than
+guessing — each is a distinct root cause:
+
+- **"The barcode doesn't work at all for accessing the student's page."** The QR/
+  barcode PNG (`generateStudentQrPng`) encoded the bare `barcodeValue` (a nanoid
+  slug) — plain text, not a URL. The in-app scanner worked fine (it matches on that
+  same raw text), but a parent or student scanning the printed card with an
+  ordinary phone camera app got a text string with nothing to tap, not a link. Now
+  encodes the full `${WEB_BASE_URL}/student/<slug>` URL instead (`WEB_BASE_URL` is a
+  new env var — set it in production; see `.env.example`). `scanAttendance` gained
+  `extractBarcodeValue()` to recover the bare slug from a scanned URL, so the in-app
+  scanner and manual-entry field keep working against the same printed code —
+  verified live by decoding an actual generated QR with `jsqr` and confirming both
+  the URL form and the legacy bare-slug form resolve correctly.
+- **Found and fixed a second, related bug while testing that fix**: `ScanBarcode`'s
+  `handleDecoded` — shared by the camera callback and manual entry — unconditionally
+  called `scannerRef.current?.pause(true)`. `html5-qrcode` throws synchronously if
+  the scanner isn't actively scanning, which is exactly the state manual entry
+  exists for (no camera device, denied permission). The throw happened before the
+  `try/catch` around the actual attendance API call, so the whole submit silently
+  died — manual entry, the fallback for exactly this situation, was broken by it.
+  Fixed the same way the Phase 9 unmount bug was: check `getState()` before calling
+  `pause()`/`resume()`.
+- **"Reports aren't downloading as PDF — only English text shows up."** pdfkit's
+  built-in `"Helvetica"`/`"Helvetica-Bold"` are the Adobe Standard 14 AFM fonts —
+  Latin-only. Arabic student/circle names simply have no glyphs in that font, so
+  they rendered as nothing (not an error, not a crash — invisible), leaving only the
+  English column headers and numbers, which read as "it's all in English."
+  `utils/pdf.ts` now embeds Amiri (`src/assets/fonts/*.ttf`, OFL-licensed, fetched
+  from the Google Fonts repo) via `doc.registerFont`. `tsc` doesn't copy non-`.ts`
+  files, so `scripts/copy-assets.mjs` mirrors `src/assets` into `dist/assets` as
+  part of `pnpm build`. Verified by actually downloading a circle report PDF and
+  reading it back — Arabic names render correctly now.
+- **"Lateness isn't calculated automatically after the 20:15 cutoff."** The
+  QR-scan path (`scanAttendance`) already auto-computed late-vs-present correctly
+  (see Phase 3's boundary test) — but the roster/manual-attendance tab
+  (`recordManualAttendance`) always took `status` as an explicit, literal choice
+  with no time awareness at all, by original design. Given the barcode bug above,
+  manual roster-tapping was likely the only workable path, so "automatic" lateness
+  was never actually exercised. Rather than just fixing the barcode bug and hoping
+  that's enough, added `resolveManualStatus()`: a manual "present" tap past the
+  circle's `lateAfter` is now recorded (and paid) as "late" automatically, exactly
+  as if they'd scanned in late — an explicit "late"/"absent"/"excused" tap is never
+  second-guessed, since those are already unambiguous. Deliberately _not_ applied to
+  `updateAttendanceRecord` (editing an existing record) — a correction made the next
+  day shouldn't be judged against right-now's clock.
+- **"Grades aren't saving — not sure what's wrong."** Two compounding bugs in
+  `GradesTab`: (1) `currentWeekOf()`'s default date built a local midnight `Date`
+  then called `.toISOString()` — which converts to UTC, rolling the calendar day
+  _backward_ for any positive UTC offset (Asia/Riyadh is UTC+3), silently defaulting
+  the "week of" picker to the wrong Saturday. (2) `onSubmit` had no error handling:
+  a cleared/invalid native date input produces `""`, and `new Date("").toISOString()`
+  throws synchronously — with no try/catch and no await at the call site, this was
+  an unhandled promise rejection. The button did nothing, no error, nothing in the
+  console a non-technical user would think to look at. Fixed both: `currentWeekOf()`
+  now builds the "YYYY-MM-DD" string from local Y/M/D getters directly (no UTC
+  round-trip), and `onSubmit` validates the parsed date and wraps the mutation in
+  try/catch. While in there, also fixed the duplicate-grade conflict showing the raw
+  internal error string `"grade_already_recorded"` as-is (a pattern likely repeated
+  elsewhere in the app — flagging, not fixing everywhere, since only grades was
+  reported) — added `isConflictError()` and a proper translated message for this
+  specific, expected case.
+- **Type size**: bumped the root `font-size` from 16px to 18px in `index.css`. Every
+  Tailwind `text-*` utility is a `rem` multiple of that root, so this scales the
+  whole app's type proportionally in one place rather than touching every
+  component.
+- Two pre-existing tests (`attendance.service.test.ts`, `reports.routes.test.ts`)
+  called `recordManualAttendance` with `status: "present"` without pinning the
+  clock — harmless before `resolveManualStatus()` existed, but the new time-check
+  made them fail depending on the real time of day the suite happened to run
+  (exactly the flake already fixed once earlier in `attendance.service.test.ts`;
+  the same fix — `vi.useFakeTimers({ shouldAdvanceTime: true })` pinned to a safe
+  morning instant — was needed in `reports.routes.test.ts` too once its own
+  `recordManualAttendance` calls started being time-sensitive).
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

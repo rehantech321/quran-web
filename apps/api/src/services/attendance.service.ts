@@ -14,6 +14,44 @@ import {
 } from "./points.service.js";
 import { loadOrgAndCircle } from "./shared/loadOrgAndCircle.js";
 
+/**
+ * The QR code printed on a student's card encodes their full private-link
+ * URL (so an ordinary phone camera can open it directly — see
+ * `student.service.ts#generateStudentQrPng`), not the bare `barcodeValue`.
+ * The in-app scanner and manual-entry field both feed whatever they capture
+ * straight through here, so recover the bare slug from a URL-shaped scan
+ * before matching `Student.barcodeValue`; a bare slug (manual typing, an
+ * older printed card) passes through unchanged.
+ */
+function extractBarcodeValue(scanned: string): string {
+  const trimmed = scanned.trim();
+  const match = trimmed.match(/\/student\/([^/?#]+)\/?$/);
+  return match ? decodeURIComponent(match[1]!) : trimmed;
+}
+
+/**
+ * "Present" from a supervisor manually marking the roster means "this
+ * student is here" — it doesn't say whether they were on time. Apply the
+ * same lateAfter cutoff `scanAttendance` uses so a student marked present
+ * after the cutoff is recorded (and paid points) as late automatically,
+ * exactly as if they'd scanned in late — instead of relying on every
+ * supervisor to remember to tap "late" themselves. An explicit "late" /
+ * "absent" / "excused" tap is never second-guessed; only "present" is
+ * time-checked, since those three are already unambiguous judgment calls.
+ */
+function resolveManualStatus(
+  requestedStatus: AttendanceStatus,
+  now: Date,
+  sessionDate: Date,
+  lateAfter: string,
+  timeZone: string,
+): AttendanceStatus {
+  if (requestedStatus !== "present") return requestedStatus;
+  return isAfterTimeOnSessionDate(now, sessionDate, lateAfter, timeZone)
+    ? "late"
+    : "present";
+}
+
 function pointsForStatus(config: PointsConfig, status: AttendanceStatus): number {
   switch (status) {
     case "present":
@@ -38,7 +76,7 @@ export interface ScanAttendanceParams {
 export async function scanAttendance(params: ScanAttendanceParams) {
   const student = await Student.findOne({
     organizationId: params.organizationId,
-    barcodeValue: params.barcodeValue,
+    barcodeValue: extractBarcodeValue(params.barcodeValue),
     deletedAt: null,
   });
   if (!student) throw new NotFoundError("student");
@@ -132,11 +170,18 @@ export async function recordManualAttendance(params: RecordManualAttendanceParam
   });
   if (existing) throw new ConflictError("attendance_already_recorded");
 
+  const status = resolveManualStatus(
+    params.status,
+    new Date(),
+    sessionDate,
+    circle.schedule.lateAfter,
+    org.timezone,
+  );
   const config = resolveEffectivePointsConfig(
     org.pointsConfig,
     circle.pointsConfigOverride,
   );
-  const pointsAwarded = pointsForStatus(config, params.status);
+  const pointsAwarded = pointsForStatus(config, status);
 
   const mongoSession = await mongoose.startSession();
   try {
@@ -149,7 +194,7 @@ export async function recordManualAttendance(params: RecordManualAttendanceParam
             circleId: params.circleId,
             studentId: params.studentId,
             sessionDate,
-            status: params.status,
+            status,
             method: "manual",
             pointsAwarded,
             recordedBy: params.recordedBy,
@@ -166,7 +211,7 @@ export async function recordManualAttendance(params: RecordManualAttendanceParam
         source: "attendance",
         sourceRefId: created!._id,
         points: pointsAwarded,
-        reason: `ledger.attendance.${params.status}`,
+        reason: `ledger.attendance.${status}`,
         createdBy: params.recordedBy,
         session: mongoSession,
       });

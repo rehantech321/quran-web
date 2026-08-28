@@ -143,6 +143,44 @@ describe("attendance.service", () => {
     expect(lateResult.record.status).toBe("late");
   });
 
+  it("auto-upgrades a manual 'present' mark to 'late' once the cutoff has passed, but never second-guesses an explicit status", async () => {
+    // Same fixed boundary as the scan test above: 20:15 Asia/Riyadh = 17:15 UTC.
+    const org = await createTestOrg({
+      timezone: "Asia/Riyadh",
+      pointsConfig: { attendancePresent: 10, attendanceLate: -5, attendanceExcused: 0 },
+    });
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id, {
+      lateAfter: "20:15",
+    });
+    const markedPresentLate = await createTestStudent(org._id, circle._id);
+    const markedExcusedLate = await createTestStudent(org._id, circle._id);
+
+    vi.setSystemTime(new Date("2026-03-05T17:20:00.000Z")); // 20:20 Riyadh — after cutoff
+
+    const presentRecord = await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circle._id,
+      studentId: markedPresentLate._id,
+      sessionDate: new Date(),
+      status: "present", // supervisor tapped "present" without checking the clock
+      recordedBy: supervisor._id,
+    });
+    expect(presentRecord.status).toBe("late");
+    expect(presentRecord.pointsAwarded).toBe(-5);
+
+    const excusedRecord = await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circle._id,
+      studentId: markedExcusedLate._id,
+      sessionDate: new Date(),
+      status: "excused", // an explicit, deliberate call — must not be overridden
+      recordedBy: supervisor._id,
+    });
+    expect(excusedRecord.status).toBe("excused");
+    expect(excusedRecord.pointsAwarded).toBe(0);
+  });
+
   it("reverses the old ledger entry and writes a fresh one when a record is edited", async () => {
     const org = await createTestOrg({
       pointsConfig: { attendancePresent: 10, attendanceAbsent: -10 },
@@ -207,5 +245,24 @@ describe("attendance.service", () => {
     const unscannedRecord = await AttendanceRecord.findOne({ studentId: unscanned._id });
     expect(unscannedRecord?.status).toBe("absent");
     expect((await Student.findById(unscanned._id).lean())?.totalPoints).toBe(-10);
+  });
+
+  it("resolves a scan of the student's full QR/private-link URL, not just the bare barcode", async () => {
+    // The printed QR encodes the full URL (student.service.ts#generateStudentQrPng)
+    // so an ordinary phone camera can open it directly — the in-app scanner has to
+    // recover the bare barcodeValue from that same payload to match on it.
+    const org = await createTestOrg();
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    const { record, alreadyRecorded } = await scanAttendance({
+      organizationId: org._id,
+      circleId: circle._id,
+      barcodeValue: `https://halaqat.example.com/student/${student.barcodeValue}`,
+      recordedBy: supervisor._id,
+    });
+    expect(alreadyRecorded).toBe(false);
+    expect(record.studentId.toString()).toBe(student._id.toString());
   });
 });

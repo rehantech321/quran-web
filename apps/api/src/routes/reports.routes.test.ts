@@ -1,6 +1,15 @@
 import type { Express } from "express";
 import request from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { createApp } from "../app.js";
 import { PointsLedger } from "../models/PointsLedger.js";
@@ -38,6 +47,16 @@ describe("reports routes", () => {
   }, 60_000);
   afterAll(disconnectTestDb);
   beforeEach(clearTestDb);
+  // These tests record manual attendance as "present" and expect it to stay
+  // "present" — `recordManualAttendance` now auto-upgrades a "present" mark
+  // to "late" once the circle's real-time `lateAfter` cutoff has passed (see
+  // attendance.service.ts#resolveManualStatus), so pin the clock to a safe
+  // morning instant rather than whatever wall-clock time the suite runs at.
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  });
+  afterEach(() => vi.useRealTimers());
 
   it("aggregates a circle report: attendance rate, avg grade, and total points per student", async () => {
     const org = await createTestOrg({
