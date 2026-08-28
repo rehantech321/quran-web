@@ -34,7 +34,9 @@
     "password": "Password",
     "signIn": "Sign in",
     "loginError": "Invalid credentials",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "tagline": "A beautiful home for managing Quran memorization circles",
+    "photoCredit": "A study circle at Masjid al-Haram — photo by Mohammed Tawsif Salam (CC BY-SA 3.0)"
   },
   "studentAuth": {
     "invalidLink": "This link is invalid or has expired",
@@ -96,6 +98,7 @@
     "copyLink": "Copy link",
     "shareLink": "Share link",
     "printCard": "Print card",
+    "downloadBarcodes": "Download all barcodes",
     "regenerateLink": "Regenerate link",
     "regenerateConfirm": "This will invalidate the current link. Continue?",
     "addStudent": "Add student",

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 
@@ -6,6 +7,7 @@ import { Button, Skeleton } from "@/components/ui";
 import { useBlobObjectUrls } from "@/hooks/useBlobObjectUrls";
 import { useOrganization } from "@/queries/organizations";
 import { useStudentsByCircle } from "@/queries/students";
+import { downloadStudentBarcodes } from "@/utils/downloadStudentBarcodes";
 
 /** Printable A4 sheet of student QR cards — SPEC.md §7 screen 18. Standalone route (no app chrome to fight print CSS). */
 export function PrintStudentCards() {
@@ -17,6 +19,16 @@ export function PrintStudentCards() {
     (id) => `/students/${id}/qr.png`,
     (students ?? []).map((s) => s._id),
   );
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    setIsDownloading(true);
+    try {
+      await downloadStudentBarcodes(students ?? [], `circle-${circleId}-barcodes.zip`);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   if (isLoading || !students) {
     return (
@@ -32,7 +44,12 @@ export function PrintStudentCards() {
         <h1 className="font-display text-xl text-primary-900">
           {t("student.printCard")}
         </h1>
-        <Button onClick={() => window.print()}>{t("common.print")}</Button>
+        <div className="flex gap-2">
+          <Button onClick={handleDownload} disabled={isDownloading || !students.length}>
+            {isDownloading ? t("common.loading") : t("student.downloadBarcodes")}
+          </Button>
+          <Button onClick={() => window.print()}>{t("common.print")}</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">

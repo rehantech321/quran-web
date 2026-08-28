@@ -34,7 +34,9 @@
     "password": "كلمة المرور",
     "signIn": "تسجيل الدخول",
     "loginError": "بيانات الدخول غير صحيحة",
-    "logout": "تسجيل الخروج"
+    "logout": "تسجيل الخروج",
+    "tagline": "منصّة لإدارة حلقات تحفيظ القرآن الكريم بعناية وجمال",
+    "photoCredit": "حلقة علم في المسجد الحرام — تصوير Mohammed Tawsif Salam (CC BY-SA 3.0)"
   },
   "studentAuth": {
     "invalidLink": "هذا الرابط غير صالح أو منتهي الصلاحية",
@@ -96,6 +98,7 @@
     "copyLink": "نسخ الرابط",
     "shareLink": "مشاركة الرابط",
     "printCard": "طباعة البطاقة",
+    "downloadBarcodes": "تنزيل جميع الباركود",
     "regenerateLink": "إعادة توليد الرابط",
     "regenerateConfirm": "سيتم إبطال الرابط الحالي. هل تريد المتابعة؟",
     "addStudent": "إضافة طالب",

@@ -1,12 +1,25 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { Card, EmptyState, SkeletonText, StatusChip } from "@/components/ui";
 import { useStudentsByCircle } from "@/queries/students";
+import { downloadStudentBarcodes } from "@/utils/downloadStudentBarcodes";
 
 export function StudentsTab({ circleId }: { circleId: string }) {
   const { t } = useTranslation();
   const { data: students, isLoading } = useStudentsByCircle(circleId);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  async function handleDownload() {
+    if (!students?.length) return;
+    setIsDownloading(true);
+    try {
+      await downloadStudentBarcodes(students, `circle-${circleId}-barcodes.zip`);
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -17,6 +30,14 @@ export function StudentsTab({ circleId }: { circleId: string }) {
         >
           {t("common.print")}
         </Link>
+        <button
+          type="button"
+          onClick={handleDownload}
+          disabled={isDownloading || !students?.length}
+          className="inline-flex h-9 items-center rounded-lg border border-gold-500/60 bg-gold-100 px-3 text-xs font-medium text-primary-900 transition-colors hover:bg-gold-100/70 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isDownloading ? t("common.loading") : t("student.downloadBarcodes")}
+        </button>
         <Link
           to={`/app/students/new?circleId=${circleId}`}
           className="inline-flex h-9 items-center rounded-lg bg-primary-900 px-3 text-xs font-medium text-cream-50"
