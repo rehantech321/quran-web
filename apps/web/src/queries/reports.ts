@@ -61,11 +61,18 @@ export interface StudentReport {
     questionAccuracy: number | null;
     tasksApproved: number;
     sessionsRecorded: number;
+    /** Points earned within `range`; equals `student.totalPoints` when no range is given. */
+    periodPoints: number;
   };
   recentAttendance: AttendanceRecord[];
   recentGrades: CircleGrade[];
   recentAnswers: QuestionAnswer[];
   recentLedgerEntries: PointsLedgerEntry[];
+}
+
+export interface StudentReportRange {
+  from?: Date;
+  to?: Date;
 }
 
 export function useStudentReport(studentId: string | undefined) {
@@ -79,6 +86,28 @@ export function useStudentReport(studentId: string | undefined) {
     },
     enabled: Boolean(studentId),
   });
+}
+
+/**
+ * One-off, user-triggered fetch (e.g. "send this week's report to the
+ * parent") rather than a `useQuery` — there's nothing to keep in sync with
+ * in the background for an action the supervisor fires once and is done
+ * with.
+ */
+export async function fetchStudentReport(
+  studentId: string,
+  range: StudentReportRange = {},
+): Promise<StudentReport> {
+  const res = await apiClient.get<{ data: StudentReport }>(
+    `/reports/student/${studentId}`,
+    {
+      params: {
+        from: range.from?.toISOString(),
+        to: range.to?.toISOString(),
+      },
+    },
+  );
+  return res.data.data;
 }
 
 export interface LeaderboardEntry {

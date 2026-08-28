@@ -102,7 +102,29 @@
     "editStudent": "تعديل بيانات الطالب",
     "circle": "الحلقة",
     "totalPoints": "مجموع النقاط",
-    "deleteConfirm": "هل أنت متأكد من حذف هذا الطالب؟"
+    "deleteConfirm": "هل أنت متأكد من حذف هذا الطالب؟",
+    "parentPhoneHint": "أدخل الرقم مع رمز الدولة (مثال: 9665XXXXXXXX) ليعمل زر واتساب"
+  },
+  "whatsapp": {
+    "title": "التواصل مع ولي الأمر عبر واتساب",
+    "customMessageLabel": "رسالة مخصصة",
+    "customMessagePlaceholder": "اكتب رسالة لولي الأمر...",
+    "sendMessage": "إرسال عبر واتساب",
+    "reportPeriod": "فترة التقرير",
+    "periodDaily": "يومي",
+    "periodWeekly": "أسبوعي",
+    "periodMonthly": "شهري",
+    "sendReport": "إرسال تقرير ولي الأمر",
+    "sendingReport": "جارٍ تجهيز التقرير...",
+    "invalidPhone": "رقم جوال ولي الأمر غير صالح لواتساب — تأكد من إضافة رمز الدولة",
+    "reportFetchError": "تعذّر تجهيز التقرير، حاول مرة أخرى",
+    "reportGreeting": "السلام عليكم، تقرير الطالب {{name}}",
+    "attendanceRate": "نسبة الحضور",
+    "avgGrade": "متوسط الدرجات",
+    "questionAccuracy": "دقة الإجابة على الأسئلة",
+    "tasksApproved": "المهام المنجزة",
+    "pointsEarned": "النقاط المكتسبة في هذه الفترة",
+    "reportFooter": "من تطبيق {{orgName}}"
   },
   "attendance": {
     "present": "حاضر",

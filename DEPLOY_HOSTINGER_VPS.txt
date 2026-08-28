@@ -1,0 +1,454 @@
+====================================================================
+HALAQAT JAMI' AL-SIDDIQ — DEPLOY TO A HOSTINGER VPS + CONNECT A DOMAIN
+====================================================================
+
+This guide deploys the whole app (Node/Express API + React frontend) on
+ONE Hostinger VPS, behind Nginx, on your own domain, with free HTTPS.
+
+Replace these placeholders everywhere you see them:
+  yourdomain.com     -> your real domain (e.g. halaqat-siddiq.com)
+  YOUR_VPS_IP         -> the public IP address of your Hostinger VPS
+  deploy               -> the non-root Linux username you create
+  /home/deploy/app     -> where the code lives on the server
+
+Read start to finish once before running anything — a couple of steps
+(DNS, the database secrets) need decisions made before later steps work.
+
+--------------------------------------------------------------------
+PART 0 — WHAT YOU'RE ABOUT TO BUILD
+--------------------------------------------------------------------
+
+- Nginx on the VPS terminates HTTPS on port 443, serves the built React
+  app as static files, and reverse-proxies /api/* to the Node process
+  running on 127.0.0.1:4000 (not exposed directly to the internet).
+- PM2 keeps the Node API process running, restarts it if it crashes,
+  and restarts it automatically after a server reboot.
+- The database is MongoDB. The points engine uses multi-document
+  transactions, which REQUIRE MongoDB to run as a replica set (a plain
+  standalone mongod will not work). You have two options, covered in
+  Part 4 — pick MongoDB Atlas (recommended, zero server maintenance)
+  or self-hosted MongoDB on the same VPS as a single-node replica set.
+
+--------------------------------------------------------------------
+PART 1 — POINT YOUR DOMAIN AT THE VPS (DNS)
+--------------------------------------------------------------------
+
+First find your VPS's public IP: in Hostinger's hPanel, go to
+VPS > your VPS > Overview — it's listed there as "IP Address".
+
+Where to add the DNS record depends on where the domain is registered:
+
+  A) Domain bought through Hostinger:
+     hPanel > Domains > yourdomain.com > DNS / Name Servers > DNS Zone
+     Add these records:
+       Type  Name   Points to        TTL
+       A     @      YOUR_VPS_IP      300 (or default)
+       A     www    YOUR_VPS_IP      300 (or default)
+
+  B) Domain bought elsewhere (GoDaddy, Namecheap, etc.):
+     Either point the domain's nameservers at Hostinger's, then add the
+     same two A records in hPanel's DNS Zone as above; OR just add the
+     same two A records directly in that registrar's own DNS panel —
+     you don't have to move the domain to Hostinger to use a Hostinger
+     VPS.
+
+DNS changes can take anywhere from a few minutes to a few hours to
+propagate. Check with:
+     nslookup yourdomain.com
+It should return YOUR_VPS_IP once it's live. You can continue with the
+rest of this guide while you wait — DNS only needs to be live by
+Part 7 (the SSL step).
+
+--------------------------------------------------------------------
+PART 2 — FIRST LOGIN AND BASIC VPS SETUP
+--------------------------------------------------------------------
+
+SSH in as root (Hostinger emails you the root password, or you set one
+in hPanel):
+
+     ssh root@YOUR_VPS_IP
+
+Update the system:
+
+     apt update && apt upgrade -y
+
+Create a non-root user to run everything as (never run the app as
+root):
+
+     adduser deploy
+     usermod -aG sudo deploy
+
+Set up a basic firewall — allow SSH, HTTP, and HTTPS only. Nothing
+else (the API's port 4000 and MongoDB's port 27017, if self-hosted,
+must NOT be reachable from the internet):
+
+     ufw allow OpenSSH
+     ufw allow 80/tcp
+     ufw allow 443/tcp
+     ufw enable
+     ufw status
+
+Switch to the new user for everything else in this guide:
+
+     su - deploy
+
+--------------------------------------------------------------------
+PART 3 — INSTALL THE RUNTIME (Node.js, pnpm, Nginx, PM2, git)
+--------------------------------------------------------------------
+
+Node.js 20 (via NodeSource):
+
+     curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+     sudo apt install -y nodejs
+     node -v      # should print v20.x
+
+pnpm (via Corepack, bundled with Node):
+
+     sudo corepack enable
+     corepack prepare pnpm@latest --activate
+     pnpm -v
+
+Nginx:
+
+     sudo apt install -y nginx
+     sudo systemctl enable nginx --now
+
+PM2 (process manager that keeps the API running):
+
+     sudo npm install -g pm2
+
+git:
+
+     sudo apt install -y git
+
+--------------------------------------------------------------------
+PART 4 — SET UP MONGODB
+--------------------------------------------------------------------
+
+Pick ONE of these two options.
+
+--- OPTION A (RECOMMENDED): MongoDB Atlas — no server maintenance ---
+
+1. Go to https://www.mongodb.com/atlas and create a free (M0) cluster.
+2. Database Access > add a database user with a strong password —
+   note the username and password.
+3. Network Access > add YOUR_VPS_IP to the IP access list (or
+   0.0.0.0/0 if you'd rather not manage the allow-list, though a
+   specific IP is safer since this is the only server that connects).
+4. Connect > Drivers > copy the connection string. It looks like:
+     mongodb+srv://<user>:<password>@cluster0.xxxxx.mongodb.net/halaqat?retryWrites=true&w=majority
+   Fill in your real username/password and keep the database name
+   "halaqat" (or whatever you prefer) in the path. This whole string
+   is your MONGODB_URI for Part 6. Atlas clusters are always replica
+   sets, so transactions work with no extra setup.
+
+Skip straight to Part 5.
+
+--- OPTION B: Self-hosted MongoDB on the same VPS ---
+
+Only do this if you specifically want to avoid Atlas. It needs more
+ongoing maintenance (backups, upgrades) than Option A.
+
+     sudo apt install -y gnupg curl
+     curl -fsSL https://pgp.mongodb.com/server-7.0.asc | \
+       sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg --dearmor
+     echo "deb [signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg] \
+     https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multi" | \
+       sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+     sudo apt update
+     sudo apt install -y mongodb-org
+     sudo systemctl enable mongod --now
+
+MongoDB must run as a replica set for this app's transactions to
+work. Enable it (single node is fine):
+
+     sudo nano /etc/mongod.conf
+     # add these two lines (or edit if they already exist):
+     #   replication:
+     #     replSetName: rs0
+     # save and exit (Ctrl+O, Enter, Ctrl+X)
+
+     sudo systemctl restart mongod
+     mongosh --eval "rs.initiate()"
+
+Create a database user with a password instead of leaving it open:
+
+     mongosh
+     > use admin
+     > db.createUser({ user: "halaqat", pwd: "CHOOSE_A_STRONG_PASSWORD", roles: [{ role: "readWrite", db: "halaqat" }] })
+     > exit
+
+Then enable auth:
+
+     sudo nano /etc/mongod.conf
+     # add:
+     #   security:
+     #     authorization: enabled
+     sudo systemctl restart mongod
+
+Your MONGODB_URI (for Part 6) is then:
+
+     mongodb://halaqat:CHOOSE_A_STRONG_PASSWORD@127.0.0.1:27017/halaqat?authSource=admin&replicaSet=rs0
+
+Remember: with Option B, port 27017 must stay OFF the firewall's
+allowed list (Part 2 already didn't open it) — only the app on the
+same machine should ever reach it, via 127.0.0.1.
+
+--------------------------------------------------------------------
+PART 5 — GET THE CODE ONTO THE VPS
+--------------------------------------------------------------------
+
+If your code is on GitHub/GitLab (recommended — makes future updates
+a one-line `git pull`):
+
+     mkdir -p /home/deploy/app
+     git clone <your-repo-url> /home/deploy/app
+     cd /home/deploy/app
+
+If it isn't in a git remote yet, push it there first from your local
+machine, or upload the folder with scp/rsync/SFTP instead:
+
+     # from your local machine, NOT the VPS:
+     rsync -avz --exclude node_modules --exclude dist \
+       "d:/web development/quran-web/" deploy@YOUR_VPS_IP:/home/deploy/app/
+
+--------------------------------------------------------------------
+PART 6 — ENVIRONMENT VARIABLES
+--------------------------------------------------------------------
+
+On the VPS, inside /home/deploy/app:
+
+     cp apps/api/.env.example apps/api/.env
+     cp apps/web/.env.example apps/web/.env
+     nano apps/api/.env
+
+Fill in real production values:
+
+     NODE_ENV=production
+     PORT=4000
+     MONGODB_URI=<the connection string from Part 4>
+
+     JWT_ACCESS_SECRET=<generate below>
+     JWT_REFRESH_SECRET=<generate below>
+     STUDENT_JWT_SECRET=<generate below>
+     JWT_ACCESS_TTL=15m
+     JWT_REFRESH_TTL=30d
+     STUDENT_JWT_TTL=90d
+
+     CORS_ORIGIN=https://yourdomain.com,https://www.yourdomain.com
+     COOKIE_DOMAIN=yourdomain.com
+
+Generate each of the three secrets with (run 3 times, paste one value
+into each *_SECRET line above):
+
+     openssl rand -hex 32
+
+apps/web/.env doesn't need editing — leave VITE_API_BASE_URL unset
+(it defaults to /api/v1, which is correct once Nginx proxies /api on
+the same domain in Part 8).
+
+Important: COOKIE_DOMAIN and NODE_ENV=production together make the
+staff login's refresh-token cookie require HTTPS (the "secure" flag).
+This is intentional — it's exactly why Part 9 (SSL) isn't optional in
+production; logins will silently fail to persist until HTTPS is live.
+
+--------------------------------------------------------------------
+PART 7 — INSTALL DEPENDENCIES AND BUILD
+--------------------------------------------------------------------
+
+     cd /home/deploy/app
+     pnpm install
+     pnpm -r build
+
+This builds:
+  apps/api/dist/         -> compiled Node API (run with `node dist/index.js`)
+  apps/web/dist/          -> static frontend (index.html + assets/) that
+                              Nginx will serve directly
+
+--------------------------------------------------------------------
+PART 8 — RUN THE API WITH PM2
+--------------------------------------------------------------------
+
+     cd /home/deploy/app/apps/api
+     pm2 start dist/index.js --name halaqat-api
+     pm2 save
+
+Make PM2 (and therefore the API) survive a server reboot:
+
+     pm2 startup
+     # it prints a `sudo env PATH=... pm2 startup systemd -u deploy ...`
+     # command — copy that exact line, run it, then:
+     pm2 save
+
+Useful PM2 commands going forward:
+
+     pm2 status              # is it running?
+     pm2 logs halaqat-api    # tail the API's logs
+     pm2 restart halaqat-api # after a redeploy
+
+--------------------------------------------------------------------
+PART 9 — NGINX: SERVE THE FRONTEND + PROXY /api
+--------------------------------------------------------------------
+
+     sudo nano /etc/nginx/sites-available/halaqat
+
+Paste (adjust the two "yourdomain.com" lines and the root path if you
+cloned somewhere other than /home/deploy/app):
+
+     server {
+         listen 80;
+         server_name yourdomain.com www.yourdomain.com;
+
+         root /home/deploy/app/apps/web/dist;
+         index index.html;
+
+         # React Router: any non-file route falls back to index.html
+         location / {
+             try_files $uri /index.html;
+         }
+
+         # API + everything under /api goes to the Node process
+         location /api/ {
+             proxy_pass http://127.0.0.1:4000;
+             proxy_http_version 1.1;
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $remote_addr;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+         }
+
+         # Cache built, hashed JS/CSS assets aggressively — Vite's
+         # filenames change on every build, so this is always safe.
+         location /assets/ {
+             expires 1y;
+             add_header Cache-Control "public, immutable";
+         }
+     }
+
+Enable the site and test the config:
+
+     sudo ln -s /etc/nginx/sites-available/halaqat /etc/nginx/sites-enabled/
+     sudo rm -f /etc/nginx/sites-enabled/default
+     sudo nginx -t
+     sudo systemctl reload nginx
+
+At this point, http://yourdomain.com should already load the app over
+plain HTTP (login won't fully work yet — see the HTTPS note in Part 6).
+
+--------------------------------------------------------------------
+PART 10 — FREE HTTPS (Let's Encrypt / Certbot)
+--------------------------------------------------------------------
+
+Only do this once DNS from Part 1 has actually propagated — check
+`nslookup yourdomain.com` returns YOUR_VPS_IP first.
+
+     sudo apt install -y certbot python3-certbot-nginx
+     sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+Certbot will ask for an email (for renewal reminders) and offer to
+redirect HTTP to HTTPS automatically — say yes. It edits the Nginx
+config from Part 9 for you.
+
+Certificates auto-renew via a systemd timer Certbot installs; confirm
+it's there:
+
+     sudo systemctl status certbot.timer
+
+Your site is now live at https://yourdomain.com.
+
+--------------------------------------------------------------------
+PART 11 — CREATE YOUR FIRST MOSQUE (ORGANIZATION + ADMIN LOGIN)
+--------------------------------------------------------------------
+
+There's no public sign-up page by design — an org and its first admin
+are created with a script, run once from the server:
+
+     cd /home/deploy/app
+     ORG_NAME="جامع الصِّدِّيق" \
+     ORG_NAME_EN="Jami' Al-Siddiq" \
+     ORG_SLUG="jami-al-siddiq" \
+     ORG_TIMEZONE="Asia/Riyadh" \
+     ADMIN_NAME="Admin Name" \
+     ADMIN_EMAIL="admin@yourdomain.com" \
+     ADMIN_PASSWORD="choose-a-strong-password" \
+     pnpm create-org
+
+It prints the new organization ID and admin user ID on success. Log
+in at https://yourdomain.com/login with the admin email/password you
+chose — from there, everything else (supervisors, circles, students)
+is managed inside the app itself.
+
+(If you'd rather explore with realistic sample data first instead of
+starting from a blank org, run `pnpm seed` instead — note it WIPES the
+whole database first, so only use it before Part 11's real data, or
+against a throwaway database.)
+
+--------------------------------------------------------------------
+PART 12 — VERIFY EVERYTHING WORKS
+--------------------------------------------------------------------
+
+  [ ] https://yourdomain.com loads the login page (padlock shown, no
+      certificate warning)
+  [ ] Logging in as the admin from Part 11 works and stays logged in
+      after a page refresh (this specifically confirms the HTTPS
+      cookie is working — see the Part 6 note)
+  [ ] Creating a circle and a student works
+  [ ] The student's QR code image loads (GET /api/v1/students/:id/qr.png)
+  [ ] `pm2 status` shows halaqat-api as "online"
+  [ ] `sudo systemctl status nginx` shows "active (running)"
+
+--------------------------------------------------------------------
+PART 13 — DEPLOYING FUTURE UPDATES
+--------------------------------------------------------------------
+
+Whenever you push new code to your git remote:
+
+     cd /home/deploy/app
+     git pull
+     pnpm install
+     pnpm -r build
+     pm2 restart halaqat-api
+
+Nginx doesn't need restarting for a frontend-only change — it serves
+the newly-built apps/web/dist files immediately since it reads from
+disk on each request.
+
+--------------------------------------------------------------------
+PART 14 — TROUBLESHOOTING
+--------------------------------------------------------------------
+
+Site loads but API calls fail (network errors in the browser console):
+  - `pm2 logs halaqat-api` — is the process actually running and
+    connected to MongoDB? Look for "Connected to MongoDB" / "API
+    listening on port 4000".
+  - Check apps/api/.env's MONGODB_URI is correct and (Option A) the
+    VPS's IP is allow-listed in Atlas Network Access.
+
+"MongoServerError: Transaction numbers are only allowed on a replica
+set member or mongos" — MongoDB isn't running as a replica set. If
+self-hosted (Option B), re-check the replSetName + `rs.initiate()`
+steps in Part 4; if Atlas, this shouldn't happen (Atlas is always a
+replica set) — double check MONGODB_URI is really pointed at Atlas.
+
+Login "succeeds" but you're logged out on refresh:
+  - This is the HTTPS-required cookie from Part 6. Confirm you're on
+    https:// (not http://) and that COOKIE_DOMAIN in apps/api/.env
+    matches your real domain exactly (no https:// prefix, no port).
+
+502 Bad Gateway from Nginx:
+  - The Node API isn't running or isn't listening on port 4000. Check
+    `pm2 status` and `pm2 logs halaqat-api`.
+
+Certbot fails / can't verify domain:
+  - DNS from Part 1 hasn't propagated yet — wait and recheck with
+    `nslookup yourdomain.com`. Certbot needs port 80 reachable from
+    the internet, which `ufw allow 80/tcp` in Part 2 already opened.
+
+Blank white page at https://yourdomain.com:
+  - Check the browser console for a 404 on assets — usually means the
+    Nginx `root` path in Part 9 doesn't match where you actually
+    cloned the repo, or `pnpm -r build` wasn't run/failed.
+
+====================================================================
+END OF GUIDE
+====================================================================

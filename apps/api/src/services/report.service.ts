@@ -138,21 +138,62 @@ export async function getCircleReport(
   };
 }
 
-/** A single student's full report: summary stats plus recent history in each category. */
-export async function getStudentReport(organizationId: string, studentId: string) {
+/**
+ * A single student's full report: summary stats plus recent history in each
+ * category. `range` scopes every stat to a window (e.g. "this week") for the
+ * WhatsApp report message; omitted, it reports all-time — the shape callers
+ * that predate `range` already depend on.
+ */
+export async function getStudentReport(
+  organizationId: string,
+  studentId: string,
+  range: ReportDateRange = {},
+) {
   const student = await getStudent(organizationId, studentId);
+  const isScoped = Boolean(range.from || range.to);
 
-  const [attendance, grades, answers, taskSubmissions, recentLedgerEntries] =
-    await Promise.all([
-      AttendanceRecord.find({ studentId: student._id }).sort({ sessionDate: -1 }).lean(),
-      CircleGrade.find({ studentId: student._id }).sort({ weekOf: -1 }).lean(),
-      QuestionAnswer.find({ studentId: student._id }).sort({ answeredAt: -1 }).lean(),
-      TaskSubmission.find({ studentId: student._id }).lean(),
-      PointsLedger.find({ studentId: student._id })
-        .sort({ occurredAt: -1 })
-        .limit(20)
-        .lean(),
-    ]);
+  const [
+    attendance,
+    grades,
+    answers,
+    taskSubmissions,
+    recentLedgerEntries,
+    scopedLedger,
+  ] = await Promise.all([
+    AttendanceRecord.find({
+      studentId: student._id,
+      ...dateRangeFilter(range, "sessionDate"),
+    })
+      .sort({ sessionDate: -1 })
+      .lean(),
+    CircleGrade.find({ studentId: student._id, ...dateRangeFilter(range, "weekOf") })
+      .sort({ weekOf: -1 })
+      .lean(),
+    QuestionAnswer.find({
+      studentId: student._id,
+      ...dateRangeFilter(range, "answeredAt"),
+    })
+      .sort({ answeredAt: -1 })
+      .lean(),
+    TaskSubmission.find({
+      studentId: student._id,
+      ...dateRangeFilter(range, "approvedAt"),
+    }).lean(),
+    PointsLedger.find({ studentId: student._id })
+      .sort({ occurredAt: -1 })
+      .limit(20)
+      .lean(),
+    isScoped
+      ? PointsLedger.find({
+          studentId: student._id,
+          ...dateRangeFilter(range, "occurredAt"),
+        }).lean()
+      : null,
+  ]);
+
+  const periodPoints = scopedLedger
+    ? scopedLedger.reduce((sum, e) => sum + e.points, 0)
+    : student.totalPoints;
 
   return {
     student: {
@@ -162,6 +203,7 @@ export async function getStudentReport(organizationId: string, studentId: string
       totalPoints: student.totalPoints,
       pointsBreakdown: student.pointsBreakdown,
     },
+    range,
     stats: {
       attendanceRate: percentage(
         attendance.filter((a) => a.status === "present" || a.status === "late").length,
@@ -175,6 +217,7 @@ export async function getStudentReport(organizationId: string, studentId: string
       tasksApproved: taskSubmissions.filter((s) => s.approvalStatus === "approved")
         .length,
       sessionsRecorded: attendance.length,
+      periodPoints,
     },
     recentAttendance: attendance.slice(0, 10),
     recentGrades: grades.slice(0, 10),

@@ -3,6 +3,7 @@ import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../app.js";
+import { PointsLedger } from "../models/PointsLedger.js";
 import { signAccessToken } from "../services/auth.service.js";
 import { recordManualAttendance } from "../services/attendance.service.js";
 import { recordGrade } from "../services/grade.service.js";
@@ -193,5 +194,62 @@ describe("reports routes", () => {
     expect(viaReports.status).toBe(200);
     expect(viaStudents.status).toBe(200);
     expect(viaStudents.body.data.student.id).toBe(viaReports.body.data.student.id);
+  });
+
+  it("scopes a student report's stats to a date range when from/to are given (WhatsApp report periods rely on this)", async () => {
+    const org = await createTestOrg({
+      pointsConfig: { attendancePresent: 10, attendanceAbsent: -10 },
+    });
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    // One session inside the queried range, one well outside it.
+    const inRange = await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circle._id,
+      studentId: student._id,
+      sessionDate: new Date("2026-01-10"),
+      status: "present",
+      recordedBy: supervisor._id,
+    });
+    const outOfRange = await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circle._id,
+      studentId: student._id,
+      sessionDate: new Date("2025-01-10"),
+      status: "absent",
+      recordedBy: supervisor._id,
+    });
+    // The ledger stamps `occurredAt` as the real write time (Phase 3), not the
+    // backdated `sessionDate` — backdate it here too so this test can exercise
+    // the ledger-side date filter independently of `sessionDate` filtering.
+    await PointsLedger.updateOne(
+      { source: "attendance", sourceRefId: inRange._id },
+      { occurredAt: new Date("2026-01-10") },
+    );
+    await PointsLedger.updateOne(
+      { source: "attendance", sourceRefId: outOfRange._id },
+      { occurredAt: new Date("2025-01-10") },
+    );
+
+    const scoped = await request(app)
+      .get(`/api/v1/reports/student/${student._id}`)
+      .query({ from: "2026-01-01", to: "2026-01-31" })
+      .set("Authorization", authHeader(admin));
+    expect(scoped.status).toBe(200);
+    expect(scoped.body.data.stats.sessionsRecorded).toBe(1);
+    expect(scoped.body.data.stats.attendanceRate).toBe(100);
+    expect(scoped.body.data.stats.periodPoints).toBe(10);
+
+    const unscoped = await request(app)
+      .get(`/api/v1/reports/student/${student._id}`)
+      .set("Authorization", authHeader(admin));
+    expect(unscoped.body.data.stats.sessionsRecorded).toBe(2);
+    expect(unscoped.body.data.stats.attendanceRate).toBe(50);
+    expect(unscoped.body.data.stats.periodPoints).toBe(
+      unscoped.body.data.student.totalPoints,
+    );
   });
 });

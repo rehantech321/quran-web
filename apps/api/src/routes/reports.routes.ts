@@ -46,17 +46,27 @@ export function createReportsRouter() {
     },
   );
 
-  router.get("/student/:id", validateParams(studentIdParamSchema), async (req, res) => {
-    const student = await getStudent(req.user!.organizationId, req.params.id!);
-    await assertSupervisorOwnsCircle(
-      req.user!.organizationId,
-      req.user!.role,
-      req.user!.id,
-      student.circleId.toString(),
-    );
-    const report = await getStudentReport(req.user!.organizationId, req.params.id!);
-    res.json({ success: true, data: report });
-  });
+  router.get(
+    "/student/:id",
+    validateParams(studentIdParamSchema),
+    validateQuery(reportDateRangeQuerySchema),
+    async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
+      const query = req.query as unknown as z.infer<typeof reportDateRangeQuerySchema>;
+      const report = await getStudentReport(
+        req.user!.organizationId,
+        req.params.id!,
+        query,
+      );
+      res.json({ success: true, data: report });
+    },
+  );
 
   router.get("/leaderboard", validateQuery(leaderboardQuerySchema), async (req, res) => {
     const query = req.query as unknown as z.infer<typeof leaderboardQuerySchema>;

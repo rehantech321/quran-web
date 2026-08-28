@@ -7,8 +7,11 @@ import { z } from "zod";
 
 import { createStudentSchema, updateStudentSchema } from "@halaqat/shared";
 
-import { Button, Card, CardBody, Input } from "@/components/ui";
+import { Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
+import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
+import { useOrganization } from "@/queries/organizations";
+import { fetchStudentReport } from "@/queries/reports";
 import {
   useCreateStudent,
   useDeleteStudent,
@@ -96,6 +99,7 @@ export function StudentForm() {
             />
             <Input
               label={t("student.parentPhone")}
+              hint={t("student.parentPhoneHint")}
               error={errors.parentPhone?.message}
               {...register("parentPhone")}
             />
@@ -130,6 +134,14 @@ export function StudentForm() {
 
       {isEditing && studentId && student && (
         <StudentAccessCard studentId={studentId} accessSlug={student.accessSlug} />
+      )}
+
+      {isEditing && studentId && student && (
+        <SendWhatsAppCard
+          studentId={studentId}
+          fullName={student.fullName}
+          parentPhone={student.parentPhone}
+        />
       )}
 
       {isEditing && (
@@ -221,6 +233,143 @@ function StudentAccessCard({
             </Button>
           </div>
         </div>
+      </div>
+    </Card>
+  );
+}
+
+type ReportPeriod = "daily" | "weekly" | "monthly";
+
+const PERIOD_LABEL_KEYS: Record<ReportPeriod, string> = {
+  daily: "whatsapp.periodDaily",
+  weekly: "whatsapp.periodWeekly",
+  monthly: "whatsapp.periodMonthly",
+};
+
+function periodToRange(period: ReportPeriod): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to);
+  if (period === "daily") {
+    from.setHours(0, 0, 0, 0);
+  } else if (period === "weekly") {
+    from.setDate(from.getDate() - 7);
+  } else {
+    from.setDate(from.getDate() - 30);
+  }
+  return { from, to };
+}
+
+function SendWhatsAppCard({
+  studentId,
+  fullName,
+  parentPhone,
+}: {
+  studentId: string;
+  fullName: string;
+  parentPhone: string;
+}) {
+  const { t } = useTranslation();
+  const { data: org } = useOrganization();
+  const [customMessage, setCustomMessage] = useState("");
+  const [period, setPeriod] = useState<ReportPeriod>("weekly");
+  const [isSendingReport, setIsSendingReport] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function onSendCustomMessage() {
+    setError(null);
+    const sent = openWhatsAppChat(parentPhone, customMessage);
+    if (!sent) setError(t("whatsapp.invalidPhone"));
+  }
+
+  async function onSendReport() {
+    setError(null);
+    if (!isLikelyValidWhatsAppPhone(parentPhone)) {
+      setError(t("whatsapp.invalidPhone"));
+      return;
+    }
+    setIsSendingReport(true);
+    try {
+      const range = periodToRange(period);
+      const report = await fetchStudentReport(studentId, range);
+      const lines = [
+        t("whatsapp.reportGreeting", { name: fullName }),
+        `${t("whatsapp.reportPeriod")}: ${t(PERIOD_LABEL_KEYS[period])}`,
+        "",
+      ];
+      if (report.stats.attendanceRate !== null) {
+        lines.push(`${t("whatsapp.attendanceRate")}: ${report.stats.attendanceRate}%`);
+      }
+      if (report.stats.avgGrade !== null) {
+        lines.push(`${t("whatsapp.avgGrade")}: ${report.stats.avgGrade}`);
+      }
+      if (report.stats.questionAccuracy !== null) {
+        lines.push(
+          `${t("whatsapp.questionAccuracy")}: ${report.stats.questionAccuracy}%`,
+        );
+      }
+      lines.push(`${t("whatsapp.tasksApproved")}: ${report.stats.tasksApproved}`);
+      lines.push(`${t("whatsapp.pointsEarned")}: ${report.stats.periodPoints}`);
+      if (org?.name) {
+        lines.push("", t("whatsapp.reportFooter", { orgName: org.name }));
+      }
+      openWhatsAppChat(parentPhone, lines.join("\n"));
+    } catch {
+      setError(t("whatsapp.reportFetchError"));
+    } finally {
+      setIsSendingReport(false);
+    }
+  }
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">{t("whatsapp.title")}</h2>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="whatsapp-custom-message"
+            className="text-sm font-medium text-ink-900"
+          >
+            {t("whatsapp.customMessageLabel")}
+          </label>
+          <textarea
+            id="whatsapp-custom-message"
+            value={customMessage}
+            onChange={(e) => setCustomMessage(e.target.value)}
+            placeholder={t("whatsapp.customMessagePlaceholder")}
+            rows={3}
+            className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-start text-sm text-ink-900 placeholder:text-ink-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onSendCustomMessage}
+            disabled={!customMessage.trim()}
+          >
+            {t("whatsapp.sendMessage")}
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-2 border-t border-cream-200 pt-3">
+          <Select
+            label={t("whatsapp.reportPeriod")}
+            value={period}
+            onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
+            className="w-32"
+          >
+            <option value="daily">{t("whatsapp.periodDaily")}</option>
+            <option value="weekly">{t("whatsapp.periodWeekly")}</option>
+            <option value="monthly">{t("whatsapp.periodMonthly")}</option>
+          </Select>
+          <Button size="sm" onClick={onSendReport} disabled={isSendingReport}>
+            {isSendingReport ? t("whatsapp.sendingReport") : t("whatsapp.sendReport")}
+          </Button>
+        </div>
+
+        {error && (
+          <p role="alert" className="text-xs text-danger">
+            {error}
+          </p>
+        )}
       </div>
     </Card>
   );
