@@ -30,6 +30,20 @@ describe("attendance.service", () => {
   beforeAll(connectTestDb, 60_000);
   afterAll(disconnectTestDb);
   beforeEach(clearTestDb);
+  // Pin the clock to a time safely before the default `lateAfter` (20:15
+  // Asia/Riyadh, see DEFAULT_SESSION_DEFAULTS) so "present" tests don't
+  // flip to "late" depending on the real time of day the suite happens to
+  // run — the one test that specifically exercises the late/present
+  // boundary sets its own explicit times on top of this.
+  beforeEach(() => {
+    // `shouldAdvanceTime` keeps the clock ticking forward in step with real
+    // time (just offset to start at a safe instant) instead of freezing it —
+    // a fully frozen clock gives sequential writes in the same test
+    // (e.g. an attendance scan followed by an edit) an identical
+    // `occurredAt`, which breaks ledger tests that sort by it.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-01-01T10:00:00.000Z"));
+  });
   afterEach(() => vi.useRealTimers());
 
   it("awards the configured points for present/late/absent/excused", async () => {

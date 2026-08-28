@@ -10,12 +10,16 @@ export function StudentsTab({ circleId }: { circleId: string }) {
   const { t } = useTranslation();
   const { data: students, isLoading } = useStudentsByCircle(circleId);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
 
   async function handleDownload() {
     if (!students?.length) return;
     setIsDownloading(true);
+    setDownloadError(false);
     try {
       await downloadStudentBarcodes(students, `circle-${circleId}-barcodes.zip`);
+    } catch {
+      setDownloadError(true);
     } finally {
       setIsDownloading(false);
     }
@@ -45,6 +49,12 @@ export function StudentsTab({ circleId }: { circleId: string }) {
           {t("student.addStudent")}
         </Link>
       </div>
+
+      {downloadError && (
+        <p role="alert" className="text-xs text-danger">
+          {t("student.downloadBarcodesError")}
+        </p>
+      )}
 
       {isLoading && (
         <Card className="p-4">

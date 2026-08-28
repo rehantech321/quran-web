@@ -99,6 +99,7 @@
     "shareLink": "Share link",
     "printCard": "Print card",
     "downloadBarcodes": "Download all barcodes",
+    "downloadBarcodesError": "Couldn't download the barcodes, try again",
     "regenerateLink": "Regenerate link",
     "regenerateConfirm": "This will invalidate the current link. Continue?",
     "addStudent": "Add student",

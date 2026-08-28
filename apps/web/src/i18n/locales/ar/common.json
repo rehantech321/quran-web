@@ -99,6 +99,7 @@
     "shareLink": "مشاركة الرابط",
     "printCard": "طباعة البطاقة",
     "downloadBarcodes": "تنزيل جميع الباركود",
+    "downloadBarcodesError": "تعذّر تنزيل الباركود، حاول مرة أخرى",
     "regenerateLink": "إعادة توليد الرابط",
     "regenerateConfirm": "سيتم إبطال الرابط الحالي. هل تريد المتابعة؟",
     "addStudent": "إضافة طالب",

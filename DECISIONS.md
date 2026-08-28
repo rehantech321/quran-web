@@ -497,4 +497,52 @@ Non-obvious choices made while building Halaqat Jami' Al-Siddiq, in chronologica
   project reads one section and knows exactly where the edges are, without having to
   read the entire decisions log front to back.
 
-_(All 12 phases complete.)_
+## Post-launch — WhatsApp parent messaging, bulk barcode download, visual polish
+
+- **Parent/guardian WhatsApp messaging is a `wa.me` deep link, not the WhatsApp
+  Business API.** A custom-message box and a "send report" button (with a
+  daily/weekly/monthly period selector, backed by a new `range` param on
+  `getStudentReport`) both build a `https://wa.me/<digits>?text=...` URL and open it
+  in a new tab — the supervisor still taps Send inside WhatsApp themselves. Chosen
+  over the official Business API because that requires Meta business verification
+  and pre-approved message templates for anything sent outside a 24h reply window,
+  for a feature that's fundamentally "help staff send a message a human reviews
+  before it goes out." `apps/web/src/lib/whatsapp.ts` normalizes whatever phone
+  format was typed (`+`, `00`, spaces, dashes) into the digits-only form `wa.me`
+  needs; it can't guess a missing country code, so the parent-phone field now has an
+  inline hint asking staff to include one.
+- **Bulk barcode download zips client-side (`jszip`), not via a new server
+  endpoint.** `downloadStudentBarcodes()` fetches each student's existing
+  `/students/:id/qr.png` (already an authenticated, per-student route) in parallel
+  and packages them into one `.zip` in the browser — no new backend surface, no new
+  server dependency. Filenames are index-prefixed and Arabic-safe
+  (`01-أحمد محمد.png`). Wired into both the circle Students tab and the print sheet,
+  since either place could plausibly be where a supervisor reaches for "get me every
+  QR code in this circle."
+- **Login's hero photo is a real, identifiable halaqa — not a stock/generic mosque
+  image** — "Halaq at Masjid al-Haram, 6 April 2015, Makkah, Saudi Arabia" by
+  Mohammed Tawsif Salam, sourced from Wikimedia Commons under CC BY-SA 3.0 /
+  GFDL 1.2+. CC BY-SA requires attribution, satisfied by a visible, linked credit
+  line in the corner of the hero panel (`auth.photoCredit`, both locales) rather
+  than only in a repo-level credits file — attribution needs to travel with the
+  image wherever it's shown, not just live in source control. Resized/re-encoded to
+  WebP+JPEG fallback at 1920px/~250KB (from a 5184×3456/5.3MB original) and checked
+  into `apps/web/public/images/` rather than hot-linked, so the login page doesn't
+  depend on Wikimedia's uptime.
+- **`Login` and every other screen with a placeholder mosque icon now render the
+  real org logo (`BrandMark`, `public/quran-logo.png`) instead of the generic
+  `MihrabArch` ornament** — consistent branding beats a good-enough abstract
+  substitute once a real asset exists.
+- **Fixed a real, pre-existing test flake while touching this area**:
+  `attendance.service.test.ts`'s non-boundary tests called `scanAttendance` without
+  pinning the clock, so whether a scan landed as "present" or "late" depended on the
+  real wall-clock time the suite happened to run relative to the default `lateAfter`
+  (20:15 Asia/Riyadh) — invisible during a normal workday, guaranteed to fail
+  overnight. Fixed with a suite-level `beforeEach` pinning fake time to a safe
+  morning instant, using vitest's `shouldAdvanceTime: true` (not a fully frozen
+  clock) so sequential writes within one test still get distinct, correctly-ordered
+  `occurredAt` timestamps — a first attempt with a frozen clock passed the
+  status-only assertions but broke a test asserting ledger sort order, since a scan
+  followed by an edit landed on the exact same frozen instant.
+
+_(All 12 phases complete; further entries appended as post-launch work lands.)_

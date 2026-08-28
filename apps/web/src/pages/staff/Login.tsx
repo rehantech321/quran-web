@@ -48,9 +48,6 @@ export function Login() {
           src="/images/halaqa-hero.webp"
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
-          // Login is the very first route most staff hit — decode eagerly so
-          // the photo isn't still blank when the rest of the page is ready.
-          fetchPriority="high"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-primary-950/95 via-primary-950/55 to-primary-950/10 lg:bg-gradient-to-r lg:from-primary-950/35 lg:via-primary-950/65 lg:to-primary-950/95" />
         <GirihPattern color="var(--c-gold-400)" opacity={0.08} tileSize={88} />
@@ -90,7 +87,7 @@ export function Login() {
       </div>
 
       {/* Form */}
-      <div className="relative flex flex-1 items-center justify-center p-4 lg:w-[440px] lg:flex-none lg:p-10">
+      <div className="relative flex flex-1 items-start justify-center p-4 pt-8 lg:w-[440px] lg:flex-none lg:items-center lg:p-10">
         <motion.div
           initial={reduceMotion ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}

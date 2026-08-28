@@ -20,11 +20,15 @@ export function PrintStudentCards() {
     (students ?? []).map((s) => s._id),
   );
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState(false);
 
   async function handleDownload() {
     setIsDownloading(true);
+    setDownloadError(false);
     try {
       await downloadStudentBarcodes(students ?? [], `circle-${circleId}-barcodes.zip`);
+    } catch {
+      setDownloadError(true);
     } finally {
       setIsDownloading(false);
     }
@@ -51,6 +55,12 @@ export function PrintStudentCards() {
           <Button onClick={() => window.print()}>{t("common.print")}</Button>
         </div>
       </div>
+
+      {downloadError && (
+        <p role="alert" className="mb-4 text-xs text-danger print:hidden">
+          {t("student.downloadBarcodesError")}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
         {students.map((student) => (
