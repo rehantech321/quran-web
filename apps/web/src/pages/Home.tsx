@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { GirihPattern } from "@/components/ornament";
+import { BrandMark } from "@/components/BrandMark";
 
 /** Placeholder landing page — replaced by the real login screen in Phase 9. */
 export function Home() {
@@ -9,6 +10,7 @@ export function Home() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center gap-4 overflow-hidden bg-cream-100 p-6">
       <GirihPattern opacity={0.04} />
+      <BrandMark className="relative h-28 w-40" />
       <h1 className="relative font-display text-3xl text-primary-900">
         {t("app.title")}
       </h1>

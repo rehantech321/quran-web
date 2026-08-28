@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { CornerArabesque, MihrabArch } from "@/components/ornament";
+import { CornerArabesque } from "@/components/ornament";
+import { BrandMark } from "@/components/BrandMark";
 import { Skeleton } from "@/components/ui";
 import { useMyProfile } from "@/queries/studentMe";
 
@@ -39,7 +40,9 @@ export function StudentDashboard() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
       <div className="overflow-hidden rounded-2xl border border-cream-200 bg-cream-50 shadow-card">
-        <MihrabArch variant="cap" className="h-16 w-full text-primary-900" />
+        <div className="flex h-20 items-center justify-center border-b border-cream-200 bg-cream-100">
+          <BrandMark className="h-20 w-28" />
+        </div>
         <div className="relative flex flex-col items-center gap-2 px-4 pb-6 pt-2">
           {profile.photoUrl ? (
             <img

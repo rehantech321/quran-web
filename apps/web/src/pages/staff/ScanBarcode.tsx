@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useParams } from "react-router-dom";
 
 import { MihrabArch } from "@/components/ornament";
+import { BrandMark } from "@/components/BrandMark";
 import { Button, Input, StatusChip } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useScanAttendance } from "@/queries/attendance";
@@ -131,6 +132,7 @@ export function ScanBarcode() {
   return (
     <div className="relative flex min-h-screen flex-col bg-primary-950">
       <div className="flex items-center justify-between p-4">
+        <BrandMark className="h-12 w-16 brightness-125" />
         <Link to={`/app/circles/${circleId}`} className="text-sm text-cream-100">
           &rarr; {t("common.back")}
         </Link>

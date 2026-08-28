@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 
-import { MihrabArch } from "@/components/ornament";
+import { BrandMark } from "@/components/BrandMark";
 import { Button, Skeleton } from "@/components/ui";
 import { useBlobObjectUrls } from "@/hooks/useBlobObjectUrls";
 import { useOrganization } from "@/queries/organizations";
@@ -59,7 +59,7 @@ export function PrintStudentCards() {
             className="print-card flex flex-col items-center gap-2 rounded-xl border-2 border-gold-500/40 bg-cream-50 p-4 text-center"
           >
             <div className="flex items-center gap-1 text-xs text-primary-900">
-              <MihrabArch variant="cap" className="h-4 w-6" />
+              <BrandMark className="h-8 w-12" />
               {org?.name}
             </div>
             {student.photoUrl ? (

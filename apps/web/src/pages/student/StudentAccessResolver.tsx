@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
-import { GirihPattern, MihrabArch } from "@/components/ornament";
+import { GirihPattern } from "@/components/ornament";
+import { BrandMark } from "@/components/BrandMark";
 import { Button, Input } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useResolveStudentAccess, useVerifyStudentPin } from "@/queries/studentAccess";
@@ -38,7 +39,7 @@ export function StudentAccessResolver() {
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-cream-100 p-6">
       <GirihPattern opacity={0.05} />
       <div className="relative flex w-full max-w-sm flex-col items-center gap-4 text-center">
-        <MihrabArch variant="cap" className="h-16 w-28 text-primary-900" />
+        <BrandMark className="h-28 w-40" />
 
         {isLoading && <p className="text-ink-600">{t("common.loading")}</p>}
 

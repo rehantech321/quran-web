@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { AppShell, type NavItem } from "@/layouts/AppShell";
+import { BrandMark } from "@/components/BrandMark";
 import { useOrganization } from "@/queries/organizations";
 import { useAuthStore } from "@/store/authStore";
 import { useLogout } from "@/queries/auth";
@@ -76,7 +77,8 @@ export function StaffLayout() {
         navItems={navItems}
         header={
           <div className="flex w-full items-center justify-between gap-2">
-            <div>
+            <div className="flex min-w-0 items-center gap-2">
+              <BrandMark className="h-12 w-14 shrink-0" />
               <p className="font-display text-base text-primary-900">
                 {org?.name ?? t("app.title")}
               </p>

@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { loginSchema } from "@halaqat/shared";
 
+import { BrandMark } from "@/components/BrandMark";
 import { CornerArabesque, GirihPattern, MihrabArch } from "@/components/ornament";
 import { Button, Card, CardBody, Input } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
@@ -64,10 +65,7 @@ export function Login() {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pb-8 text-center lg:items-start lg:px-16 lg:pb-0 lg:text-start"
         >
-          <MihrabArch
-            variant="cap"
-            className="hidden h-16 w-28 text-gold-500/90 lg:block"
-          />
+          <BrandMark className="h-24 w-32 brightness-125 lg:h-28 lg:w-40" />
           <div className="flex items-center gap-3 text-gold-400">
             <span className="h-px w-10 bg-gold-400/70" />
             <span className="text-xs uppercase tracking-[0.28em]">Halaqat</span>
