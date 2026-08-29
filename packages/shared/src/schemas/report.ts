@@ -9,6 +9,12 @@ export const leaderboardQuerySchema = z.object({
 });
 export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
 
+/** "Champions of the Circles" home-screen widget: top student per circle. */
+export const circleChampionsQuerySchema = z.object({
+  period: z.enum(LEADERBOARD_PERIODS).default("week"),
+});
+export type CircleChampionsQuery = z.infer<typeof circleChampionsQuerySchema>;
+
 export const reportDateRangeQuerySchema = z.object({
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),

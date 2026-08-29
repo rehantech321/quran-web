@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose";
 
-import { ConflictError, NotFoundError } from "../errors.js";
+import { NotFoundError } from "../errors.js";
 import { CircleGrade } from "../models/CircleGrade.js";
 import {
   awardPoints,
@@ -54,12 +54,10 @@ export async function recordGrade(params: RecordGradeParams) {
     circle.pointsConfigOverride,
   );
 
-  const existing = await CircleGrade.findOne({
-    studentId: params.studentId,
-    weekOf: params.weekOf,
-  });
-  if (existing) throw new ConflictError("grade_already_recorded");
-
+  // Deliberately no "one grade per student per week" restriction — grades are
+  // a free-form log a supervisor adds to whenever they assess a student, not
+  // pinned to a rigid weekly slot (changed after real usage: supervisors want
+  // to add multiple entries for a student without fighting a date picker).
   const pointsAwarded = resolveGradePoints(
     config.gradeToPointsMode,
     params.grade,

@@ -623,4 +623,122 @@ guessing — each is a distinct root cause:
   morning instant — was needed in `reports.routes.test.ts` too once its own
   `recordManualAttendance` calls started being time-sensitive).
 
+## Post-launch — second round: barcode config, grades rework, reports, champions, photo upload
+
+- **The barcode was still opening `localhost` in production.** Not a code bug — the
+  previous fix (encoding `WEB_BASE_URL` into the QR) works correctly, but
+  `WEB_BASE_URL` was never actually set on the production deployment, so it fell
+  back to its dev default. This requires a server-side config change (setting
+  `WEB_BASE_URL=https://<real-domain>` in the deployed `apps/api/.env` and
+  restarting the API) that only the deployment owner can make — flagged clearly
+  rather than silently "fixed" by code that can't reach their server.
+- **Grades reworked from "one per student per week" to a free-form log.**
+  `recordGrade`'s application-level conflict check was already removed in the
+  previous round, but `CircleGrade` still had a **database-level unique index** on
+  `{studentId, weekOf}` — missed the first time. A test added to catch exactly this
+  (two grades for the same student on the same day) caught it immediately: a raw
+  `MongoServerError: E11000 duplicate key` leaking straight past the app's error
+  handling. Fixed by dropping `unique: true` from that index.
+  **Operational note**: Mongoose does not drop or alter existing indexes on an
+  already-running database — it only creates missing ones. Any deployment that has
+  already recorded grades (including this one) needs the stale index dropped
+  manually once: `db.circlegrades.dropIndex("studentId_1_weekOf_1")` via `mongosh`.
+  This is the first schema-index change since launch; there's still no migration
+  tooling (see HANDOVER.md), so this one-off manual step is the pragmatic fix
+  rather than building migration infrastructure for a single index.
+- **Grades UI redesigned**: grouped by student (most recently graded student
+  first) instead of one flat chronological list — with grades no longer
+  one-per-week, a supervisor reviewing a student's progress needs their history
+  together, not interleaved with everyone else's. The date field is now optional,
+  defaults to today, and is no longer framed as "which week" — it's just "when."
+  Also reinforced (via a hint under the student dropdown) that student selection
+  was already scoped to the circle being viewed — Grades has always lived inside a
+  specific circle's detail page (`circleId` from the route), never showing students
+  from other circles; the confusion was about clarity, not an actual scoping bug.
+- **Reports were showing English text in an Arabic-first app**: the on-screen
+  Report tab was already fully i18n'd, but the PDF/CSV _exports_
+  (`exportCircleReport`/`exportStudentReport`) had hardcoded English titles, column
+  headers, and — in the student ledger export — raw `source`/`reason` values like
+  `"ledger.attendance.present"` (the same i18n keys the in-app points-history screen
+  translates client-side, shown here completely unlocalized since a generated
+  export has no i18next context of its own). Added `utils/ledgerLabels.ts` — a
+  small static Arabic lookup mirroring the `ledger.*` i18n namespace — and
+  translated every export's title/subtitle/columns to Arabic. Also added
+  `level` (the student's memorization level, e.g. "جزء عم") and `latestGrade` to
+  both the on-screen report and every export — asked for explicitly ("memorization
+  progress and level"); a dedicated structured memorization-progress tracker (pages/
+  juz completed) doesn't exist yet and would be a larger follow-up, so this reuses
+  the existing `level` field and the grade history already being recorded.
+- **Removed the logged-in staff member's name from the header.** Investigated
+  before touching anything: the name shown ("Abdulrahman Al-Sudais") is literally
+  `ADMIN_NAME` in `scripts/seedData.ts` — the demo/seed script's placeholder admin,
+  a nod to the real Imam of Masjid al-Haram. Its appearance in what's described as
+  a production deployment is a strong signal that `pnpm seed` (which wipes and
+  replaces all data with 30 fake students, fake circles, etc.) was run there
+  instead of `pnpm create-org` (which only ever adds one real org, never wipes
+  anything) — flagged directly rather than silently worked around, since it implies
+  the visible data may not be real. The header itself now just shows the org
+  logo/name — simpler, and sidesteps the question of whose name to show for good.
+- **Added "Champions of the Circles" (فرسان الحلقات)** — the top-scoring student in
+  each circle for the current week, shown on the Circles-list screen (the actual
+  post-login landing page; the separate `/` `Home` route is unrelated legacy
+  placeholder from Phase 1 that was never wired into the real navigation flow).
+  New `getCircleChampions` service loops `getLeaderboard` per circle server-side
+  (fine at mosque scale — a handful of circles) rather than the frontend firing N
+  separate requests. A circle with no points activity yet renders with no
+  champion card rather than an empty/broken one.
+- **Logo made large and prominent on the login/hero screen**, per direct request —
+  the existing `BrandMark` (the mosque's real logo, added directly to
+  `public/quran-logo.png` outside this session) grew from a small corner mark to
+  the dominant visual element, with a drop-shadow for legibility against the photo
+  background. The background photo itself is still the Masjid al-Haram halaqa photo
+  from the previous round — swapping in a mosque-specific photo is a one-file
+  change (`public/images/halaqa-hero.*`) once one is provided.
+- **Photo upload/capture, not a pasted URL.** `apps/api/uploads/` and the `multer`
+  dependency were already scaffolded (per HANDOVER.md's "File uploads were
+  deferred") but never wired to a route. Added `POST /students/:id/photo`
+  (disk storage, JPEG/PNG/WebP only, 5MB limit, old file deleted on replacement) and
+  serve it back at `/api/v1/uploads/students/*` — same prefix Nginx already proxies
+  in the deploy guide, so no new reverse-proxy config needed. The stored `photoUrl`
+  is `${WEB_BASE_URL}/api/v1/uploads/students/<file>` — a real absolute URL, so it
+  satisfies the existing `updateStudentSchema`'s `.url()` validation without any
+  special-casing. Frontend: `<input type="file" accept="image/*"
+capture="environment">` opens the device camera directly on mobile (falls back to
+  a plain file picker on desktop, where `capture` has no effect) and uploads
+  immediately on selection, with a local blob-URL preview while the request is in
+  flight. Deliberately edit-only (like the QR/access card) — a brand-new student
+  has no id to upload against until the record exists.
+- Full verification before commit: `pnpm -r build`, `pnpm -r lint`, and
+  `pnpm --filter @halaqat/api test` all re-run clean, plus a live pass (fresh seeded
+  DB + real browser) confirming the index fix, the champions widget, the redesigned
+  grades tab, the Arabic PDF/report content, the enlarged logo, and the removed
+  header name all actually render correctly — not just compile.
+
+## Post-launch — real mosque photo for the login hero
+
+- **Swapped the stock Masjid al-Haram photo for the mosque's own** (a real photo of
+  their students at a memorization achievement ceremony, provided directly). Removed
+  the Wikipedia CC-BY-SA attribution link along with it — not needed for an owned
+  photo — and deleted the now-unused `halaqa-hero.*` files and the raw
+  full-resolution original from `public/` (only the resized/compressed derivatives
+  in `public/images/` are actually served; leaving the unoptimized original at a
+  public URL would have shipped extra, unnecessary bytes for no benefit).
+- **Found and fixed a real contrast bug this swap exposed**: the darkening overlay
+  behind the hero text was tuned against the old (darker, warmer-toned) photo and
+  tinted with the brand's dark green (`primary-950`) — against this brighter photo,
+  a dark-green overlay under the also-dark-green logo let the logo blend into its
+  own background instead of popping. Switched to a neutral black overlay (flat wash
+  - directional gradient, both stronger) plus a soft blurred glow specifically
+    behind the logo, and added drop-shadows to the title/tagline text — legible
+    regardless of what's directly behind them now, not just tuned to one specific
+    photo.
+- **Found and fixed a mobile clipping bug** while re-verifying: the mobile hero
+  used a fixed `h-64` height sized for the old, smaller logo. Once the logo grew
+  (per the earlier "make it prominent" request), the tagline paragraph silently
+  overflowed past the container's `overflow-hidden` edge — never visible on mobile,
+  no error, easy to miss without actually screenshotting a phone-sized viewport.
+  Fixed by hiding the tagline on mobile entirely (`hidden lg:block` — it's a nice-
+  to-have flourish, not essential information, and mobile screen space is
+  precious) rather than growing the container indefinitely to fit more text.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

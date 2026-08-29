@@ -1,5 +1,8 @@
 import "express-async-errors";
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
@@ -49,6 +52,17 @@ export function createApp() {
   app.use("/api/v1/questions", createQuestionsRouter());
   app.use("/api/v1/tasks", createTasksRouter());
   app.use("/api/v1/reports", createReportsRouter());
+  // Uploaded student photos — served as plain static files (no auth), same
+  // as any other `photoUrl` (e.g. an external avatar URL) already was.
+  // Relative to this file's own location so it resolves the same way in dev
+  // (tsx, running from src/) and prod (node, running from dist/) — see
+  // middleware/upload.ts, which resolves UPLOADS_ROOT the same way.
+  app.use(
+    "/api/v1/uploads",
+    express.static(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "uploads"),
+    ),
+  );
   // Mounted at the bare /api/v1 prefix (it defines its own full paths —
   // /circles/:id/students, /students, /students/:id, ... — since SPEC.md §6
   // nests student listing under circles but everything else under /students

@@ -77,8 +77,3 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
-
-/** 409 — "this already exists / was already done" (e.g. a duplicate weekly grade). */
-export function isConflictError(error: unknown): boolean {
-  return axios.isAxiosError(error) && error.response?.status === 409;
-}

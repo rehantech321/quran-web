@@ -166,6 +166,58 @@ describe("reports routes", () => {
     expect(res.body.data[1].points).toBe(10);
   });
 
+  it("champions: returns the top scorer in each circle, and null for a circle with no points activity", async () => {
+    const org = await createTestOrg({ pointsConfig: { attendancePresent: 10 } });
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circleWithChampion = await createTestCircle(org._id, supervisor._id);
+    const emptyCircle = await createTestCircle(org._id, supervisor._id);
+    const topScorer = await createTestStudent(org._id, circleWithChampion._id);
+    const runnerUp = await createTestStudent(org._id, circleWithChampion._id);
+
+    await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circleWithChampion._id,
+      studentId: runnerUp._id,
+      sessionDate: new Date(),
+      status: "present",
+      recordedBy: supervisor._id,
+    });
+    await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circleWithChampion._id,
+      studentId: topScorer._id,
+      sessionDate: new Date("2026-01-01"),
+      status: "present",
+      recordedBy: supervisor._id,
+    });
+    await recordManualAttendance({
+      organizationId: org._id,
+      circleId: circleWithChampion._id,
+      studentId: topScorer._id,
+      sessionDate: new Date("2026-01-08"),
+      status: "present",
+      recordedBy: supervisor._id,
+    });
+
+    const res = await request(app)
+      .get("/api/v1/reports/champions?period=all")
+      .set("Authorization", authHeader(admin));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toHaveLength(2);
+
+    const withChampion = res.body.data.find(
+      (c: { circleId: string }) => c.circleId === circleWithChampion._id.toString(),
+    );
+    expect(withChampion.champion.studentId).toBe(topScorer._id.toString());
+    expect(withChampion.champion.points).toBe(20);
+
+    const withoutChampion = res.body.data.find(
+      (c: { circleId: string }) => c.circleId === emptyCircle._id.toString(),
+    );
+    expect(withoutChampion.champion).toBeNull();
+  });
+
   it("exports a circle report as CSV with the expected header row", async () => {
     const org = await createTestOrg();
     const admin = await createTestAdmin(org._id);

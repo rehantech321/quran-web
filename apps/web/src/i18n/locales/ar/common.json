@@ -35,8 +35,7 @@
     "signIn": "تسجيل الدخول",
     "loginError": "بيانات الدخول غير صحيحة",
     "logout": "تسجيل الخروج",
-    "tagline": "منصّة لإدارة حلقات تحفيظ القرآن الكريم بعناية وجمال",
-    "photoCredit": "حلقة علم في المسجد الحرام — تصوير Mohammed Tawsif Salam (CC BY-SA 3.0)"
+    "tagline": "منصّة لإدارة حلقات تحفيظ القرآن الكريم بعناية وجمال"
   },
   "studentAuth": {
     "invalidLink": "هذا الرابط غير صالح أو منتهي الصلاحية",
@@ -77,6 +76,10 @@
     "deleteConfirm": "هل أنت متأكد من حذف هذه الحلقة؟",
     "deleteBlocked": "لا يمكن حذف الحلقة لوجود طلاب نشطين بها"
   },
+  "champions": {
+    "title": "فرسان الحلقات",
+    "subtitle": "الطالب الأعلى نقاطًا في كل حلقة هذا الأسبوع"
+  },
   "days": {
     "0": "الأحد",
     "1": "الاثنين",
@@ -92,7 +95,8 @@
     "studentPhone": "جوال الطالب",
     "level": "المستوى",
     "dateOfBirth": "تاريخ الميلاد",
-    "photoUrl": "رابط الصورة",
+    "photo": "صورة الطالب",
+    "takePhoto": "التقاط صورة",
     "notes": "ملاحظات",
     "accessLink": "الرابط الخاص",
     "copyLink": "نسخ الرابط",
@@ -151,12 +155,14 @@
     "grade": "الدرجة",
     "points": "النقاط",
     "notes": "ملاحظات",
+    "notesPlaceholder": "مثال: حفظ من سورة البقرة، الصفحة ١٢",
     "saveGrade": "حفظ الدرجة",
-    "weekOf": "أسبوع",
+    "date": "التاريخ",
     "addGrade": "إضافة درجة",
     "selectStudent": "اختر الطالب",
-    "invalidWeek": "الرجاء اختيار تاريخ صحيح للأسبوع",
-    "alreadyRecorded": "تم تسجيل درجة لهذا الطالب في هذا الأسبوع من قبل"
+    "selectStudentHint": "القائمة تعرض طلاب هذه الحلقة فقط",
+    "invalidWeek": "الرجاء اختيار تاريخ صحيح",
+    "entryCount": "{{count}} درجة"
   },
   "questions": {
     "questionText": "نص السؤال",
@@ -208,6 +214,7 @@
     "all": "الكل",
     "avgAttendance": "متوسط الحضور",
     "avgGrade": "متوسط الدرجات",
+    "latestGrade": "آخر درجة",
     "questionAccuracy": "دقة الإجابات",
     "tasksCompleted": "المهام المكتملة",
     "totalPoints": "مجموع النقاط",

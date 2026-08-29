@@ -64,6 +64,28 @@ export function useUpdateStudent(studentId: string) {
   });
 }
 
+export function useUploadStudentPhoto(studentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("photo", file);
+      const res = await apiClient.post<{ data: Student }>(
+        `/students/${studentId}/photo`,
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+      );
+      return res.data.data;
+    },
+    onSuccess: (student) => {
+      queryClient.invalidateQueries({ queryKey: ["students", studentId] });
+      queryClient.invalidateQueries({
+        queryKey: ["circles", student.circleId, "students"],
+      });
+    },
+  });
+}
+
 export function useDeleteStudent() {
   const queryClient = useQueryClient();
   return useMutation({

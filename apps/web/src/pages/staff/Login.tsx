@@ -42,14 +42,20 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen flex-col bg-cream-100 lg:flex-row">
-      {/* Hero: a real halaqa, so the app's own purpose is the first thing seen. */}
-      <div className="relative flex h-64 shrink-0 items-end overflow-hidden lg:h-auto lg:flex-1 lg:items-center">
+      {/* Hero: this mosque's own students at a memorization achievement ceremony. */}
+      <div className="relative flex h-80 shrink-0 items-end overflow-hidden lg:h-auto lg:flex-1 lg:items-center">
         <img
-          src="/images/halaqa-hero.webp"
+          src="/images/mosque-hero.webp"
           alt=""
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover object-top"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-primary-950/95 via-primary-950/55 to-primary-950/10 lg:bg-gradient-to-r lg:from-primary-950/35 lg:via-primary-950/65 lg:to-primary-950/95" />
+        {/* Flat neutral scrim first (works regardless of how bright/busy the
+            photo is), then a stronger directional wash behind the text —
+            deliberately black, not the brand green: a dark-green overlay
+            under the (also dark green) logo let the logo blend into its own
+            background instead of standing out. */}
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/15 lg:bg-gradient-to-r lg:from-black/15 lg:via-black/60 lg:to-black/90" />
         <GirihPattern color="var(--c-gold-400)" opacity={0.08} tileSize={88} />
         <MihrabArch
           variant="cap"
@@ -62,28 +68,17 @@ export function Login() {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pb-8 text-center lg:items-start lg:px-16 lg:pb-0 lg:text-start"
         >
-          <BrandMark className="h-24 w-32 brightness-125 lg:h-28 lg:w-40" />
-          <div className="flex items-center gap-3 text-gold-400">
-            <span className="h-px w-10 bg-gold-400/70" />
-            <span className="text-xs uppercase tracking-[0.28em]">Halaqat</span>
-            <span className="h-px w-10 bg-gold-400/70" />
+          <div className="relative">
+            <div className="absolute inset-0 -m-6 rounded-full bg-cream-50/25 blur-2xl" />
+            <BrandMark className="relative h-44 w-60 brightness-125 drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)] lg:h-72 lg:w-[26rem]" />
           </div>
-          <h1 className="font-display text-4xl leading-tight text-cream-50 lg:text-6xl">
+          <h1 className="font-display text-3xl leading-tight text-cream-50 drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] lg:text-5xl">
             {t("app.title")}
           </h1>
-          <p className="max-w-xs font-display text-sm italic text-cream-100/85 lg:max-w-sm lg:text-lg">
+          <p className="hidden max-w-xs font-display text-sm italic text-cream-100/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] lg:block lg:max-w-sm lg:text-lg">
             {t("auth.tagline")}
           </p>
         </motion.div>
-
-        <a
-          href="https://en.wikipedia.org/wiki/File:Halaq_at_Masjid_al-Haram,_6_April_2015,_Makkah,_Saudi_Arabia.jpg"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute bottom-1.5 end-2 z-10 text-[10px] text-cream-50/60 hover:text-cream-50/90 hover:underline"
-        >
-          {t("auth.photoCredit")}
-        </a>
       </div>
 
       {/* Form */}

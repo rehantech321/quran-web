@@ -5,12 +5,13 @@ import { cn } from "@/utils/cn";
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
+  hint?: string;
   children: ReactNode;
 }
 
 /** A styled native <select> — native selects stay accessible, RTL-correct, and touch-friendly for free. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { label, error, id, className, children, ...props },
+  { label, error, hint, id, className, children, ...props },
   ref,
 ) {
   const generatedId = useId();
@@ -37,6 +38,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
       >
         {children}
       </select>
+      {hint && !error && <p className="text-xs text-ink-600">{hint}</p>}
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   );

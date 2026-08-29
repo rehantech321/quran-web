@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import {
+  circleChampionsQuerySchema,
   circleIdParamSchema,
   leaderboardQuerySchema,
   reportDateRangeQuerySchema,
@@ -15,6 +16,7 @@ import { getStudent } from "../services/student.service.js";
 import {
   exportCircleReport,
   exportStudentReport,
+  getCircleChampions,
   getCircleReport,
   getLeaderboard,
   getStudentReport,
@@ -81,6 +83,16 @@ export function createReportsRouter() {
     const leaderboard = await getLeaderboard(req.user!.organizationId, query);
     res.json({ success: true, data: leaderboard });
   });
+
+  router.get(
+    "/champions",
+    validateQuery(circleChampionsQuerySchema),
+    async (req, res) => {
+      const query = req.query as unknown as z.infer<typeof circleChampionsQuerySchema>;
+      const champions = await getCircleChampions(req.user!.organizationId, query.period);
+      res.json({ success: true, data: champions });
+    },
+  );
 
   router.get("/export", validateQuery(reportExportQuerySchema), async (req, res) => {
     const query = req.query as unknown as z.infer<typeof reportExportQuerySchema>;

@@ -19,6 +19,7 @@ import {
   useStudent,
   useStudentQrObjectUrl,
   useUpdateStudent,
+  useUploadStudentPhoto,
 } from "@/queries/students";
 
 type FormValues = z.infer<typeof createStudentSchema>;
@@ -51,7 +52,6 @@ export function StudentForm() {
             studentPhone: student.studentPhone,
             level: student.level,
             notes: student.notes,
-            photoUrl: student.photoUrl,
           }
         : { circleId: circleIdFromQuery, fullName: "", parentPhone: "" },
   });
@@ -112,11 +112,6 @@ export function StudentForm() {
               {...register("level")}
             />
             <Input
-              label={`${t("student.photoUrl")} (${t("common.optional")})`}
-              placeholder="https://..."
-              {...register("photoUrl")}
-            />
-            <Input
               label={`${t("student.notes")} (${t("common.optional")})`}
               {...register("notes")}
             />
@@ -131,6 +126,14 @@ export function StudentForm() {
           </form>
         </CardBody>
       </Card>
+
+      {isEditing && studentId && student && (
+        <StudentPhotoCard
+          studentId={studentId}
+          photoUrl={student.photoUrl}
+          fullName={student.fullName}
+        />
+      )}
 
       {isEditing && studentId && student && (
         <StudentAccessCard studentId={studentId} accessSlug={student.accessSlug} />
@@ -150,6 +153,72 @@ export function StudentForm() {
         </Button>
       )}
     </div>
+  );
+}
+
+function StudentPhotoCard({
+  studentId,
+  photoUrl,
+  fullName,
+}: {
+  studentId: string;
+  photoUrl?: string;
+  fullName: string;
+}) {
+  const { t } = useTranslation();
+  const uploadPhoto = useUploadStudentPhoto(studentId);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow selecting the same file again later
+    if (!file) return;
+
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+    try {
+      await uploadPhoto.mutateAsync(file);
+    } finally {
+      URL.revokeObjectURL(localPreview);
+      setPreviewUrl(null);
+    }
+  }
+
+  const displayUrl = previewUrl ?? photoUrl;
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">{t("student.photo")}</h2>
+      <div className="flex items-center gap-4">
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={fullName}
+            className="h-20 w-20 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="h-20 w-20 shrink-0 rounded-full bg-cream-200" />
+        )}
+        <div className="min-w-0 flex-1">
+          <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-lg bg-primary-900 px-4 text-sm font-medium text-cream-50">
+            {uploadPhoto.isPending ? t("common.loading") : t("student.takePhoto")}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={onFileSelected}
+              disabled={uploadPhoto.isPending}
+            />
+          </label>
+          {uploadPhoto.isError && (
+            <p role="alert" className="mt-2 text-xs text-danger">
+              {getApiErrorMessage(uploadPhoto.error, t("common.error"))}
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
   );
 }
 

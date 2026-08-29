@@ -89,13 +89,17 @@ Documented here rather than silently left for someone to discover — see
   mode) or shipping meaningfully less JS by replacing `recharts` and/or
   `html5-qrcode` with lighter alternatives — both real architectural changes, not
   polish.
-- **File uploads (Multer) were deferred**, per the original spec's own phrasing.
-  `logoUrl`/`avatarUrl`/`photoUrl` fields all exist and render correctly wherever a
-  URL is present, but there's no upload endpoint yet — today those fields must be set
-  to an already-hosted image URL (e.g. via Settings' logo-URL field, or a seed-time
-  placeholder). Adding real upload support means picking object storage (S3-compatible
-  is the natural fit given Multer's disk/S3 storage engines) and is a self-contained
-  follow-up.
+- **Student photo upload/capture is implemented** (`POST /students/:id/photo`,
+  disk storage under `apps/api/uploads/`, served at `/api/v1/uploads/students/*`) —
+  the frontend opens the device camera directly via `<input type="file"
+capture="environment">`. **Org logo and staff `avatarUrl` are still URL-only** —
+  Settings' logo field and any avatar field still just take a pasted URL, no
+  upload UI. Extending the same upload route/pattern to those is a small,
+  self-contained follow-up (same multer config, different destination folder and
+  owning model). Disk storage was the pragmatic choice for a single-VPS deployment
+  (see `DEPLOY_HOSTINGER_VPS.txt`) — an S3-compatible store would be the move if
+  this ever runs across multiple app servers, since local disk storage doesn't
+  survive a horizontal scale-out.
 - **No automated CI pipeline** (GitHub Actions or equivalent) was set up — `pnpm -r
 build`, `pnpm -r lint`, and `pnpm test` are all fast and deterministic enough to
   wire into one directly; this is a small, high-value next step.

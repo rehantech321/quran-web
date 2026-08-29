@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/theme/ThemeProvider";
 import { AppShell, type NavItem } from "@/layouts/AppShell";
 import { BrandMark } from "@/components/BrandMark";
 import { useOrganization } from "@/queries/organizations";
-import { useAuthStore } from "@/store/authStore";
 import { useLogout } from "@/queries/auth";
 
 function CirclesIcon(props: SVGProps<SVGSVGElement>) {
@@ -61,7 +60,6 @@ function ProfileIcon(props: SVGProps<SVGSVGElement>) {
 export function StaffLayout() {
   const { t, i18n } = useTranslation();
   const { data: org } = useOrganization();
-  const user = useAuthStore((s) => s.user);
   const logout = useLogout();
 
   const navItems: NavItem[] = [
@@ -82,7 +80,6 @@ export function StaffLayout() {
               <p className="font-display text-base text-primary-900">
                 {org?.name ?? t("app.title")}
               </p>
-              {user && <p className="text-xs text-ink-600">{user.fullName}</p>}
             </div>
             <div className="flex items-center gap-2">
               <button

@@ -9,8 +9,9 @@ import { QuestionAnswer } from "../models/QuestionAnswer.js";
 import { Student } from "../models/Student.js";
 import { TaskSubmission } from "../models/TaskSubmission.js";
 import { toCsv } from "../utils/csv.js";
+import { reasonLabelAr, sourceLabelAr } from "../utils/ledgerLabels.js";
 import { renderSimpleReportPdf } from "../utils/pdf.js";
-import { getCircle } from "./circle.service.js";
+import { getCircle, listCircles } from "./circle.service.js";
 import { getStudent } from "./student.service.js";
 
 export interface ReportDateRange {
@@ -39,8 +40,10 @@ function percentage(numerator: number, denominator: number): number | null {
 export interface StudentReportRow {
   studentId: Types.ObjectId;
   fullName: string;
+  level: string | null;
   attendanceRate: number | null;
   avgGrade: number | null;
+  latestGrade: number | null;
   questionAccuracy: number | null;
   tasksCompleted: number;
   totalPoints: number;
@@ -88,7 +91,9 @@ export async function getCircleReport(
   const perStudent: StudentReportRow[] = students.map((student) => {
     const sid = String(student._id);
     const studentAttendance = attendance.filter((a) => String(a.studentId) === sid);
-    const studentGrades = grades.filter((g) => String(g.studentId) === sid);
+    const studentGrades = grades
+      .filter((g) => String(g.studentId) === sid)
+      .sort((a, b) => b.weekOf.getTime() - a.weekOf.getTime());
     const studentAnswers = answers.filter((a) => String(a.studentId) === sid);
     const studentTasksCompleted = approvedSubmissions.filter(
       (s) => String(s.studentId) === sid,
@@ -102,12 +107,14 @@ export async function getCircleReport(
     return {
       studentId: student._id,
       fullName: student.fullName,
+      level: student.level ?? null,
       attendanceRate: percentage(
         studentAttendance.filter((a) => a.status === "present" || a.status === "late")
           .length,
         studentAttendance.length,
       ),
       avgGrade: average(studentGrades.map((g) => g.grade)),
+      latestGrade: studentGrades[0]?.grade ?? null,
       questionAccuracy: percentage(
         studentAnswers.filter((a) => a.isCorrect).length,
         studentAnswers.length,
@@ -199,6 +206,7 @@ export async function getStudentReport(
     student: {
       id: student._id,
       fullName: student.fullName,
+      level: student.level ?? null,
       circleId: student.circleId,
       totalPoints: student.totalPoints,
       pointsBreakdown: student.pointsBreakdown,
@@ -304,13 +312,58 @@ export async function getLeaderboard(
     .map((entry, i) => ({ rank: i + 1, ...entry }));
 }
 
-const CIRCLE_REPORT_COLUMNS = [
+export interface CircleChampion {
+  circleId: Types.ObjectId;
+  circleName: string;
+  champion: LeaderboardEntry | null;
+}
+
+/**
+ * "Champions of the Circles" — the top-scoring student in each of the org's
+ * circles for `period`, for the home-screen highlight widget. A circle with
+ * no points activity yet (or no students) gets `champion: null` rather than
+ * being omitted, so the widget can still show its name with an empty state.
+ */
+export async function getCircleChampions(
+  organizationId: string,
+  period: LeaderboardPeriod = "week",
+): Promise<CircleChampion[]> {
+  const circles = await listCircles(organizationId);
+  return Promise.all(
+    circles.map(async (circle) => {
+      const [top] = await getLeaderboard(organizationId, {
+        circleId: circle._id.toString(),
+        period,
+      });
+      return {
+        circleId: circle._id,
+        circleName: circle.name,
+        champion: top ?? null,
+      };
+    }),
+  );
+}
+
+const CIRCLE_REPORT_COLUMNS_CSV = [
   { key: "fullName", header: "الاسم" },
+  { key: "level", header: "المستوى" },
   { key: "attendanceRate", header: "نسبة الحضور %" },
   { key: "avgGrade", header: "متوسط الدرجات" },
+  { key: "latestGrade", header: "آخر درجة" },
   { key: "questionAccuracy", header: "دقة الإجابات %" },
   { key: "tasksCompleted", header: "المهام المكتملة" },
   { key: "totalPoints", header: "مجموع النقاط" },
+];
+
+const CIRCLE_REPORT_COLUMNS_PDF = [
+  { key: "fullName", header: "الاسم", width: 100 },
+  { key: "level", header: "المستوى", width: 70 },
+  { key: "attendanceRate", header: "الحضور %", width: 60 },
+  { key: "avgGrade", header: "متوسط الدرجات", width: 65 },
+  { key: "latestGrade", header: "آخر درجة", width: 55 },
+  { key: "questionAccuracy", header: "الأسئلة %", width: 55 },
+  { key: "tasksCompleted", header: "المهام", width: 45 },
+  { key: "totalPoints", header: "النقاط", width: 50 },
 ];
 
 export interface ExportResult {
@@ -329,23 +382,16 @@ export async function exportCircleReport(
 
   if (format === "csv") {
     return {
-      buffer: Buffer.from(toCsv(rows, CIRCLE_REPORT_COLUMNS), "utf-8"),
+      buffer: Buffer.from(toCsv(rows, CIRCLE_REPORT_COLUMNS_CSV), "utf-8"),
       contentType: "text/csv; charset=utf-8",
       filename: `circle-report-${circleId}.csv`,
     };
   }
 
   const buffer = await renderSimpleReportPdf({
-    title: `Circle report: ${report.circle.name}`,
-    subtitle: `${report.summary.studentCount} students · total points ${report.summary.totalPoints}`,
-    columns: [
-      { key: "fullName", header: "Name", width: 140 },
-      { key: "attendanceRate", header: "Attendance %", width: 90 },
-      { key: "avgGrade", header: "Avg grade", width: 80 },
-      { key: "questionAccuracy", header: "Quiz %", width: 70 },
-      { key: "tasksCompleted", header: "Tasks", width: 60 },
-      { key: "totalPoints", header: "Points", width: 60 },
-    ],
+    title: `تقرير الحلقة: ${report.circle.name}`,
+    subtitle: `عدد الطلاب: ${report.summary.studentCount} · مجموع النقاط: ${report.summary.totalPoints}`,
+    columns: CIRCLE_REPORT_COLUMNS_PDF,
     rows,
   });
   return {
@@ -363,15 +409,15 @@ export async function exportStudentReport(
   const report = await getStudentReport(organizationId, studentId);
   const rows = report.recentLedgerEntries.map((e) => ({
     date: e.occurredAt.toISOString().slice(0, 10),
-    source: e.source,
-    reason: e.reason,
+    source: sourceLabelAr(e.source),
+    reason: reasonLabelAr(e.reason),
     points: e.points,
   }));
   const columns = [
-    { key: "date", header: "Date" },
-    { key: "source", header: "Source" },
-    { key: "reason", header: "Reason" },
-    { key: "points", header: "Points" },
+    { key: "date", header: "التاريخ" },
+    { key: "source", header: "المصدر" },
+    { key: "reason", header: "السبب" },
+    { key: "points", header: "النقاط" },
   ];
 
   if (format === "csv") {
@@ -383,13 +429,13 @@ export async function exportStudentReport(
   }
 
   const buffer = await renderSimpleReportPdf({
-    title: `Student report: ${report.student.fullName}`,
-    subtitle: `Total points ${report.student.totalPoints} · attendance ${report.stats.attendanceRate ?? "-"}% · avg grade ${report.stats.avgGrade ?? "-"}`,
+    title: `تقرير الطالب: ${report.student.fullName}`,
+    subtitle: `المستوى: ${report.student.level ?? "—"} · مجموع النقاط: ${report.student.totalPoints} · نسبة الحضور: ${report.stats.attendanceRate ?? "—"}% · متوسط الدرجات: ${report.stats.avgGrade ?? "—"}`,
     columns: [
-      { key: "date", header: "Date", width: 90 },
-      { key: "source", header: "Source", width: 90 },
-      { key: "reason", header: "Reason", width: 220 },
-      { key: "points", header: "Points", width: 60 },
+      { key: "date", header: "التاريخ", width: 90 },
+      { key: "source", header: "المصدر", width: 90 },
+      { key: "reason", header: "السبب", width: 220 },
+      { key: "points", header: "النقاط", width: 60 },
     ],
     rows,
   });

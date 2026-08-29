@@ -35,8 +35,7 @@
     "signIn": "Sign in",
     "loginError": "Invalid credentials",
     "logout": "Sign out",
-    "tagline": "A beautiful home for managing Quran memorization circles",
-    "photoCredit": "A study circle at Masjid al-Haram — photo by Mohammed Tawsif Salam (CC BY-SA 3.0)"
+    "tagline": "A beautiful home for managing Quran memorization circles"
   },
   "studentAuth": {
     "invalidLink": "This link is invalid or has expired",
@@ -77,6 +76,10 @@
     "deleteConfirm": "Are you sure you want to delete this circle?",
     "deleteBlocked": "This circle still has active students and can't be deleted"
   },
+  "champions": {
+    "title": "Champions of the Circles",
+    "subtitle": "This week's top-scoring student in each circle"
+  },
   "days": {
     "0": "Sunday",
     "1": "Monday",
@@ -92,7 +95,8 @@
     "studentPhone": "Student phone",
     "level": "Level",
     "dateOfBirth": "Date of birth",
-    "photoUrl": "Photo URL",
+    "photo": "Student photo",
+    "takePhoto": "Take photo",
     "notes": "Notes",
     "accessLink": "Private link",
     "copyLink": "Copy link",
@@ -151,12 +155,14 @@
     "grade": "Grade",
     "points": "Points",
     "notes": "Notes",
+    "notesPlaceholder": "e.g. Memorized Surah Al-Baqarah, page 12",
     "saveGrade": "Save grade",
-    "weekOf": "Week of",
+    "date": "Date",
     "addGrade": "Add grade",
     "selectStudent": "Select student",
-    "invalidWeek": "Please choose a valid week date",
-    "alreadyRecorded": "A grade for this student has already been recorded for this week"
+    "selectStudentHint": "Only shows students in this circle",
+    "invalidWeek": "Please choose a valid date",
+    "entryCount": "{{count}} grades"
   },
   "questions": {
     "questionText": "Question text",
@@ -208,6 +214,7 @@
     "all": "All-time",
     "avgAttendance": "Avg. attendance",
     "avgGrade": "Avg. grade",
+    "latestGrade": "Latest grade",
     "questionAccuracy": "Question accuracy",
     "tasksCompleted": "Tasks completed",
     "totalPoints": "Total points",

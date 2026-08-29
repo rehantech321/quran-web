@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import { MulterError } from "multer";
 
 import { logger } from "../config/logger.js";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
@@ -28,6 +29,13 @@ function mapError(err: unknown): ErrorBody {
   }
   if (err instanceof ValidationError) {
     return { status: 400, code: "VALIDATION_ERROR", message: err.message };
+  }
+  if (err instanceof MulterError) {
+    const message =
+      err.code === "LIMIT_FILE_SIZE"
+        ? "Photo is too large (max 5MB)"
+        : "Could not upload the photo";
+    return { status: 400, code: "VALIDATION_ERROR", message };
   }
   if (err instanceof InvalidCredentialsError) {
     return {

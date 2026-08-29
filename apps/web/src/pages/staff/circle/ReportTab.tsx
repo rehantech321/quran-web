@@ -62,17 +62,27 @@ export function ReportTab({ circleId }: { circleId: string }) {
 
       <div className="flex flex-col gap-2">
         {report.students.map((row) => (
-          <Card
-            key={row.studentId}
-            className="flex items-center justify-between p-3 text-sm"
-          >
-            <span className="font-medium text-ink-900">{row.fullName}</span>
-            <div className="flex gap-4 text-xs text-ink-600">
-              <span>{row.attendanceRate ?? "—"}%</span>
-              <span>{row.avgGrade ?? "—"}</span>
-              <span>{row.tasksCompleted}</span>
+          <Card key={row.studentId} className="flex flex-col gap-1 p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-ink-900">{row.fullName}</span>
               <span className="font-display text-sm text-primary-900">
-                {row.totalPoints}
+                {row.totalPoints} {t("common.points")}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-600">
+              {row.level && (
+                <span>
+                  {t("student.level")}: {row.level}
+                </span>
+              )}
+              <span>
+                {t("reports.avgAttendance")}: {row.attendanceRate ?? "—"}%
+              </span>
+              <span>
+                {t("reports.latestGrade")}: {row.latestGrade ?? "—"}
+              </span>
+              <span>
+                {t("reports.tasksCompleted")}: {row.tasksCompleted}
               </span>
             </div>
           </Card>

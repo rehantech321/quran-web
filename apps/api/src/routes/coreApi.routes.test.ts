@@ -1,8 +1,13 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+
 import type { Express } from "express";
+import QRCode from "qrcode";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { createApp } from "../app.js";
+import { STUDENT_PHOTOS_DIR } from "../middleware/upload.js";
 import { signAccessToken } from "../services/auth.service.js";
 import { clearTestDb, connectTestDb, disconnectTestDb } from "../test/dbTestUtils.js";
 import {
@@ -143,6 +148,49 @@ describe("core API routes", () => {
     expect(res.headers["content-type"]).toBe("image/png");
     // PNG magic bytes.
     expect(res.body.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  });
+
+  it("uploads a student photo, updates photoUrl, and deletes the file it replaces", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+    const fakePhoto = await QRCode.toBuffer("not a real photo, just valid PNG bytes");
+
+    const first = await request(app)
+      .post(`/api/v1/students/${student._id}/photo`)
+      .set("Authorization", authHeader(admin))
+      .attach("photo", fakePhoto, { filename: "photo.png", contentType: "image/png" });
+    expect(first.status).toBe(200);
+    expect(first.body.data.photoUrl).toContain("/api/v1/uploads/students/");
+    const firstFilename = first.body.data.photoUrl.split("/").pop();
+    expect(existsSync(path.join(STUDENT_PHOTOS_DIR, firstFilename))).toBe(true);
+
+    const second = await request(app)
+      .post(`/api/v1/students/${student._id}/photo`)
+      .set("Authorization", authHeader(admin))
+      .attach("photo", fakePhoto, { filename: "photo2.png", contentType: "image/png" });
+    expect(second.status).toBe(200);
+    // The first upload's file is cleaned up once it's no longer referenced.
+    expect(existsSync(path.join(STUDENT_PHOTOS_DIR, firstFilename))).toBe(false);
+  });
+
+  it("rejects a student photo upload that isn't an image", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    const res = await request(app)
+      .post(`/api/v1/students/${student._id}/photo`)
+      .set("Authorization", authHeader(admin))
+      .attach("photo", Buffer.from("just some text"), {
+        filename: "notes.txt",
+        contentType: "text/plain",
+      });
+    expect(res.status).toBe(400);
   });
 
   it("a supervisor cannot manage a student outside their own circle", async () => {

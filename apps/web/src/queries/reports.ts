@@ -14,8 +14,10 @@ import type {
 export interface CircleReportRow {
   studentId: string;
   fullName: string;
+  level: string | null;
   attendanceRate: number | null;
   avgGrade: number | null;
+  latestGrade: number | null;
   questionAccuracy: number | null;
   tasksCompleted: number;
   totalPoints: number;
@@ -51,6 +53,7 @@ export interface StudentReport {
   student: {
     id: string;
     fullName: string;
+    level: string | null;
     circleId: string;
     totalPoints: number;
     pointsBreakdown: PointsBreakdown;
@@ -108,6 +111,32 @@ export async function fetchStudentReport(
     },
   );
   return res.data.data;
+}
+
+export interface CircleChampion {
+  circleId: string;
+  circleName: string;
+  champion: {
+    rank: number;
+    studentId: string;
+    fullName: string;
+    photoUrl?: string;
+    circleId: string;
+    points: number;
+  } | null;
+}
+
+/** "Champions of the Circles" — the top scorer in each circle, for the Circles-list home widget. */
+export function useCircleChampions(period: LeaderboardPeriod = "week") {
+  return useQuery({
+    queryKey: ["reports", "champions", period],
+    queryFn: async () => {
+      const res = await apiClient.get<{ data: CircleChampion[] }>("/reports/champions", {
+        params: { period },
+      });
+      return res.data.data;
+    },
+  });
 }
 
 export interface LeaderboardEntry {

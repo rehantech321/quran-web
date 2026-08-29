@@ -26,8 +26,10 @@ const circleGradeSchema = new Schema<CircleGradeFields>({
 
 circleGradeSchema.plugin(orgScopedPlugin);
 
-// One grade per student per week — see SPEC.md §4.
-circleGradeSchema.index({ studentId: 1, weekOf: 1 }, { unique: true });
+// Grades are a free-form log, not one-per-week (changed after real usage —
+// see DECISIONS.md) — no uniqueness constraint on {studentId, weekOf}.
+// Kept as a plain (non-unique) index since queries still filter/sort by it.
+circleGradeSchema.index({ studentId: 1, weekOf: 1 });
 circleGradeSchema.index({ organizationId: 1, circleId: 1, weekOf: 1 });
 
 export const CircleGrade = model<CircleGradeFields>("CircleGrade", circleGradeSchema);

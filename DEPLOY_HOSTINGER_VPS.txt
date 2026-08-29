@@ -418,6 +418,13 @@ Nginx doesn't need restarting for a frontend-only change — it serves
 the newly-built apps/web/dist files immediately since it reads from
 disk on each request.
 
+Uploaded student photos live at apps/api/uploads/ on the VPS's local
+disk (not in git, not in MongoDB) — `git pull` never touches it, so
+photos survive a normal redeploy. It's the one thing on this server
+that isn't reproducible from git + the database, so include it in
+whatever backup routine you set up (a simple `tar` of that folder
+alongside your MongoDB backups is enough).
+
 --------------------------------------------------------------------
 PART 14 — TROUBLESHOOTING
 --------------------------------------------------------------------

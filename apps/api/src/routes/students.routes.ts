@@ -1,3 +1,6 @@
+import { unlink } from "node:fs/promises";
+import path from "node:path";
+
 import { Router } from "express";
 import { z } from "zod";
 
@@ -9,7 +12,10 @@ import {
   updateStudentSchema,
 } from "@halaqat/shared";
 
+import { env } from "../config/env.js";
+import { ValidationError } from "../errors.js";
 import { requireAuth, requireRole, requireStudentAuth } from "../middleware/auth.js";
+import { STUDENT_PHOTOS_DIR, uploadStudentPhoto } from "../middleware/upload.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 import { getStudentReport } from "../services/report.service.js";
 import {
@@ -155,6 +161,42 @@ export function createStudentsRouter() {
         req.user!.organizationId,
         req.params.id!,
       );
+      res.json({ success: true, data: updated });
+    },
+  );
+
+  const UPLOADS_URL_PREFIX = "/api/v1/uploads/students/";
+
+  router.post(
+    "/students/:id/photo",
+    requireRole("admin", "super_admin", "supervisor"),
+    validateParams(studentIdParamSchema),
+    uploadStudentPhoto,
+    async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
+      if (!req.file) throw new ValidationError("No photo file was uploaded");
+
+      const previousPhotoUrl = student.photoUrl;
+      const photoUrl = `${env.WEB_BASE_URL}${UPLOADS_URL_PREFIX}${req.file.filename}`;
+      const updated = await updateStudent(req.user!.organizationId, req.params.id!, {
+        photoUrl,
+      });
+
+      // Best-effort cleanup of the file it's replacing — only ones we
+      // manage (not an external URL like a seed-time avatar placeholder).
+      if (previousPhotoUrl?.includes(UPLOADS_URL_PREFIX)) {
+        const previousFilename = previousPhotoUrl.split(UPLOADS_URL_PREFIX)[1];
+        if (previousFilename) {
+          await unlink(path.join(STUDENT_PHOTOS_DIR, previousFilename)).catch(() => {});
+        }
+      }
+
       res.json({ success: true, data: updated });
     },
   );

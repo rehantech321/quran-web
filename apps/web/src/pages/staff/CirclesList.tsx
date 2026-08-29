@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { createCircleSchema } from "@halaqat/shared";
 
-import { GirihPattern } from "@/components/ornament";
+import { CornerArabesque, GirihPattern } from "@/components/ornament";
 import {
   Button,
   Card,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useCircles, useCreateCircle } from "@/queries/circles";
+import { useCircleChampions } from "@/queries/reports";
 import { useStaff } from "@/queries/users";
 import { useAuthStore } from "@/store/authStore";
 import { nextSessionLabel } from "@/utils/schedule";
@@ -54,6 +55,8 @@ export function CirclesList() {
           )}
         </div>
       </div>
+
+      <ChampionsWidget />
 
       {isLoading && (
         <div className="flex flex-col gap-3">
@@ -113,6 +116,50 @@ export function CirclesList() {
 
       <CreateCircleModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
+  );
+}
+
+/** "Champions of the Circles" — this week's top student per circle, front and center on the staff home screen. */
+function ChampionsWidget() {
+  const { t } = useTranslation();
+  const { data: champions, isLoading } = useCircleChampions("week");
+  const withChampion = champions?.filter((c) => c.champion) ?? [];
+
+  if (isLoading || withChampion.length === 0) return null;
+
+  return (
+    <Card className="relative overflow-hidden p-4">
+      <CornerArabesque corner="top-start" />
+      <div className="relative mb-3">
+        <h2 className="font-display text-lg text-primary-900">{t("champions.title")}</h2>
+        <p className="text-xs text-ink-600">{t("champions.subtitle")}</p>
+      </div>
+      <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {withChampion.map(({ circleId, circleName, champion }) => (
+          <div
+            key={circleId}
+            className="flex flex-col items-center gap-1 rounded-xl border border-gold-400/30 bg-cream-50 p-3 text-center"
+          >
+            {champion!.photoUrl ? (
+              <img
+                src={champion!.photoUrl}
+                alt=""
+                className="h-14 w-14 rounded-full object-cover ring-2 ring-gold-400"
+              />
+            ) : (
+              <div className="h-14 w-14 rounded-full bg-cream-200 ring-2 ring-gold-400" />
+            )}
+            <p className="max-w-full truncate text-[11px] text-ink-600">{circleName}</p>
+            <p className="max-w-full truncate text-sm font-medium text-ink-900">
+              {champion!.fullName}
+            </p>
+            <p className="font-display text-sm text-primary-900">
+              {champion!.points} {t("common.points")}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
