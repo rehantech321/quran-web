@@ -320,6 +320,12 @@ cloned somewhere other than /home/deploy/app):
              proxy_set_header X-Real-IP $remote_addr;
              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
              proxy_set_header X-Forwarded-Proto $scheme;
+             # Nginx's own default (1MB) is smaller than a real phone-camera
+             # photo — the student-photo-capture feature uploads through
+             # here, and without this line those uploads get rejected by
+             # Nginx itself (a plain HTML error page) before ever reaching
+             # the API. Matches the app's own 8MB per-photo limit.
+             client_max_body_size 8m;
          }
 
          # Cache built, hashed JS/CSS assets aggressively — Vite's
@@ -460,6 +466,18 @@ Blank white page at https://yourdomain.com:
   - Check the browser console for a 404 on assets — usually means the
     Nginx `root` path in Part 9 doesn't match where you actually
     cloned the repo, or `pnpm -r build` wasn't run/failed.
+
+Capturing/uploading a student photo fails with a generic error:
+  - Almost always Nginx's own default upload size limit (1MB), which
+    is smaller than a real phone camera photo (routinely 3-8MB) —
+    Nginx rejects it with a plain HTML error page before the request
+    ever reaches the API, which the frontend can only show as a
+    generic failure. Fix: make sure the `location /api/` block in
+    Part 9's Nginx config has `client_max_body_size 8m;` in it (added
+    after this guide's first version — if your live config predates
+    that, add the line manually), then:
+         sudo nginx -t && sudo systemctl reload nginx
+    No API restart needed — this is an Nginx-only setting.
 
 ====================================================================
 END OF GUIDE

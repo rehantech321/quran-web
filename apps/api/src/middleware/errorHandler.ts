@@ -33,7 +33,7 @@ function mapError(err: unknown): ErrorBody {
   if (err instanceof MulterError) {
     const message =
       err.code === "LIMIT_FILE_SIZE"
-        ? "Photo is too large (max 5MB)"
+        ? "Photo is too large (max 8MB)"
         : "Could not upload the photo";
     return { status: 400, code: "VALIDATION_ERROR", message };
   }

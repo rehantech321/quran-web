@@ -30,7 +30,13 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/webp": ".webp",
 };
 
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// A real phone camera photo routinely runs 3-8MB — 5MB was tight enough to
+// bite on real devices. If you raise this, also raise the matching
+// `client_max_body_size` in the Nginx config (DEPLOY_HOSTINGER_VPS.txt) —
+// Nginx's own default (1MB) rejects the upload before it ever reaches here,
+// which is indistinguishable from a generic failure on the frontend (Nginx's
+// 413 response is a plain HTML page, not the app's JSON error shape).
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
 export const uploadStudentPhoto = multer({
   storage: multer.diskStorage({

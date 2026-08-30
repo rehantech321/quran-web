@@ -785,4 +785,24 @@ per-entry date from the grades list for the same reason. Verified live: no
 `input[type="date"]` anywhere on the tab, no "Date" label, and a grade saves and
 appears in the list correctly with no date involved at any point.
 
+## Post-launch — photo capture failing in production (Nginx body-size limit)
+
+Reported as a generic "something went wrong" on the student-photo-capture button in
+production. Couldn't reproduce locally (no Nginx in the dev loop), but the shape of
+it — every _other_ API call working fine, only the one binary-upload endpoint
+failing — pointed straight at Nginx's own default `client_max_body_size` (1MB),
+which is smaller than a real phone camera photo (routinely 3-8MB). Nginx rejects an
+oversized request with its own plain HTML error page _before_ it ever reaches the
+API, which the frontend can only render as the generic fallback message (the
+response body doesn't match the app's `{success, error}` JSON shape at all).
+
+Added `client_max_body_size 8m;` to the deploy guide's Nginx `location /api/` block
+and bumped the app's own multer limit from 5MB to 8MB to match (5MB was tight enough
+to bite on real devices even with Nginx out of the way). Both limits need to move
+together — whichever is smaller is the one that actually applies. Documented in
+`DEPLOY_HOSTINGER_VPS.txt`'s troubleshooting section for next time, and told the
+user the exact live-server fix (add the line, `nginx -t && systemctl reload nginx`
+— no API restart needed, it's an Nginx-only setting) since this can't be fixed from
+the code side alone; it requires editing config already deployed on their VPS.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_
