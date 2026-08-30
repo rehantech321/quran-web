@@ -741,4 +741,34 @@ capture="environment">` opens the device camera directly on mobile (falls back t
   to-have flourish, not essential information, and mobile screen space is
   precious) rather than growing the container indefinitely to fit more text.
 
+## Post-launch — PDF report text reading backwards
+
+Fixing the Arabic font (earlier round) made the glyphs visible and correctly shaped,
+but each line still read in the wrong order — "تقرير الحلقة: الحلقة الأولى" rendered
+as "الأولى الحلقة الحلقة: تقرير". Root cause: pdfkit (via fontkit) shapes Arabic
+letters _within_ a word correctly using the font's joining features, but implements
+none of the Unicode Bidirectional Algorithm — `.text()` just draws a string's
+characters left to right in whatever order they're given, regardless of the
+text's actual direction. For RTL text that means the first word (which belongs on
+the right) gets drawn first, on the left.
+
+Added `utils/rtlText.ts#toVisualRtl()` — reverses **word** order (splitting on
+spaces), not character order, so each word's internal letters (and any embedded
+LTR run, like a number) stay correct; only the sequence of words along the line is
+corrected. Applied it to every string `renderSimpleReportPdf` draws — title,
+subtitle, column headers, cell values — and switched everything to `align: "right"`.
+Also mirrored the table itself: columns now draw right-to-left starting from the
+page's right margin, so the first column in the array (e.g. "الاسم") lands
+rightmost, matching where a table's "first" column belongs for an Arabic reader,
+instead of the previous left-to-right layout that put it on the far side.
+
+Not a general bidi implementation (a full one would need a real bidi algorithm —
+e.g. the `bidi-js` package — to handle arbitrary mixed-script paragraphs correctly);
+word-reversal is the well-known, much simpler pragmatic fix for the
+short labels/names/values a generated report actually contains, and was verified
+against real multi-column circle and student report PDFs (10-student roster,
+level/grade/points columns, ledger source/reason history), not just a short test
+string. Added `rtlText.test.ts` covering word-order reversal, embedded-number
+handling, and non-Arabic strings passing through unchanged.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

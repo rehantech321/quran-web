@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import PDFDocument from "pdfkit";
 
+import { toVisualRtl } from "./rtlText.js";
+
 // pdfkit's built-in "Helvetica"/"Helvetica-Bold" are the Adobe Standard 14
 // AFM fonts — Latin-only. Report data (student/circle names, in particular)
 // is routinely Arabic, and those glyphs simply don't exist in that font, so
@@ -51,28 +53,36 @@ export function renderSimpleReportPdf(input: SimpleReportPdfInput): Promise<Buff
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.font("Body-Bold").fontSize(18).text(input.title, { align: "left" });
+    doc.font("Body-Bold").fontSize(18).text(toVisualRtl(input.title), { align: "right" });
     if (input.subtitle) {
       doc.moveDown(0.3);
-      doc.font("Body").fontSize(10).fillColor("#555555").text(input.subtitle);
+      doc
+        .font("Body")
+        .fontSize(10)
+        .fillColor("#555555")
+        .text(toVisualRtl(input.subtitle), { align: "right" });
       doc.fillColor("#000000");
     }
     doc.moveDown(1);
 
-    const startX = doc.x;
+    // Columns are drawn right-to-left, starting from the page's right
+    // margin — the first entry in `columns` ends up rightmost, matching
+    // where an Arabic reader expects a table's "first" (name) column to be.
+    const rightEdge = doc.page.width - doc.page.margins.right;
+    const leftEdge = doc.page.margins.left;
     let y = doc.y;
     const rowHeight = 20;
 
     doc.fontSize(10).font("Body-Bold");
-    let x = startX;
+    let x = rightEdge;
     for (const col of input.columns) {
-      doc.text(col.header, x, y, { width: col.width });
-      x += col.width;
+      x -= col.width;
+      doc.text(toVisualRtl(col.header), x, y, { width: col.width, align: "right" });
     }
     y += rowHeight;
     doc
-      .moveTo(startX, y - 4)
-      .lineTo(x, y - 4)
+      .moveTo(leftEdge, y - 4)
+      .lineTo(rightEdge, y - 4)
       .strokeColor("#cccccc")
       .stroke();
 
@@ -82,13 +92,12 @@ export function renderSimpleReportPdf(input: SimpleReportPdfInput): Promise<Buff
         doc.addPage();
         y = doc.y;
       }
-      x = startX;
+      x = rightEdge;
       for (const col of input.columns) {
+        x -= col.width;
         const value = row[col.key];
-        doc.text(value === null || value === undefined ? "" : String(value), x, y, {
-          width: col.width,
-        });
-        x += col.width;
+        const text = value === null || value === undefined ? "" : String(value);
+        doc.text(toVisualRtl(text), x, y, { width: col.width, align: "right" });
       }
       y += rowHeight;
     }
