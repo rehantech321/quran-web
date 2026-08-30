@@ -805,4 +805,30 @@ user the exact live-server fix (add the line, `nginx -t && systemctl reload ngin
 — no API restart needed, it's an Nginx-only setting) since this can't be fixed from
 the code side alone; it requires editing config already deployed on their VPS.
 
+## Post-launch — a staff member's own session broke every student link they opened
+
+Reported as "the barcode link doesn't work when the admin is logged in." Root cause
+in `apiClient.ts`'s request interceptor: it picked `staffToken ?? studentToken`
+whenever _either_ existed, on the stated assumption that "staff and student sessions
+are mutually exclusive in this browser tab." False — both tokens live in
+`localStorage`, shared across every tab of the origin, so a staff member who's
+logged in and then opens a student's own link (e.g. previewing their QR) in the same
+browser ends up with _both_ tokens present. Every request after that — including
+every student-dashboard call — got silently sent with the staff token instead of the
+freshly-minted student one. `requireStudentAuth` verifies against a different secret
+than staff tokens, so it rejected them outright: the student page loaded but every
+API call under it failed, which is a confusing failure mode to land on ("it just
+doesn't work") since nothing about it points at _which_ token is wrong.
+
+Fixed by choosing the token based on which app is actually on screen
+(`window.location.pathname.startsWith("/student")`) rather than by "whichever token
+happens to exist" — falling back to the other token only if the expected one for
+that app is genuinely absent. The 401-triggered staff-token-refresh in the response
+interceptor had the identical bug for the same reason (checked "does a staff token
+exist" instead of "was _this_ failed request sent with it") — fixed by checking the
+failed request's own `Authorization` header against the current staff token
+instead. Verified live: logged in as staff, then — without logging out, same
+browser — opened a student's link and confirmed the dashboard now loads correctly
+with no failed requests.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

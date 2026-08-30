@@ -9,12 +9,23 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  // Staff and student sessions are mutually exclusive in this browser tab
-  // (the app renders either the supervisor/admin UI or the student UI at a
-  // time), so whichever token is present is the one to send.
   const staffToken = useAuthStore.getState().accessToken;
   const studentToken = useStudentAuthStore.getState().token;
-  const token = staffToken ?? studentToken;
+  // Both tokens live in localStorage, which is shared across every tab of
+  // this origin — a staff member who's logged in and then opens a student's
+  // own link (e.g. previewing their QR code) in the same browser ends up
+  // with *both* tokens present at once, not "mutually exclusive" as assumed
+  // here previously. Blindly preferring the staff token meant every
+  // student-dashboard request after that got silently sent with the staff
+  // token instead — which `requireStudentAuth` rejects outright (it's
+  // signed with a different secret), breaking the student page entirely for
+  // any staff member who still had an active session. Which identity is
+  // "active" is determined by which app is currently on screen, not by
+  // which session happens to exist in storage.
+  const isStudentApp = window.location.pathname.startsWith("/student");
+  const token = isStudentApp
+    ? (studentToken ?? staffToken)
+    : (staffToken ?? studentToken);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -43,11 +54,18 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as
       (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
-    const isStaffRequest = Boolean(useAuthStore.getState().accessToken);
+    const staffToken = useAuthStore.getState().accessToken;
+    // Was *this specific request* actually sent with the staff token? Not
+    // just "does a staff token currently exist" — with both tokens possibly
+    // present at once (see the request interceptor above), a failed
+    // student-app request shouldn't trigger a staff-session refresh just
+    // because a staff session also happens to exist in this browser.
+    const wasStaffRequest =
+      Boolean(staffToken) && original?.headers?.Authorization === `Bearer ${staffToken}`;
 
     if (
       error.response?.status === 401 &&
-      isStaffRequest &&
+      wasStaffRequest &&
       original &&
       !original._retried
     ) {

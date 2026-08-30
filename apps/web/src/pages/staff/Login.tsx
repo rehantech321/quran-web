@@ -47,7 +47,11 @@ export function Login() {
         <img
           src="/images/mosque-hero.webp"
           alt=""
-          className="absolute inset-0 h-full w-full object-cover object-top"
+          // The Center Director is standing at the right edge of this wide
+          // group photo — `object-cover`'s default (center-anchored) crop
+          // cut him off on narrower screens. Anchoring right instead keeps
+          // him in frame; anchoring top keeps faces in frame over floor/carpet.
+          className="absolute inset-0 h-full w-full object-cover object-right-top"
         />
         {/* Flat neutral scrim first (works regardless of how bright/busy the
             photo is), then a stronger directional wash behind the text —
