@@ -771,4 +771,18 @@ level/grade/points columns, ledger source/reason history), not just a short test
 string. Added `rtlText.test.ts` covering word-order reversal, embedded-number
 handling, and non-Arabic strings passing through unchanged.
 
+## Post-launch — grades: the date field itself had to go, not just the weekly lock
+
+An earlier round removed the one-grade-per-week _restriction_ but kept a date field
+in the add-grade form (relabeled "Date", defaulting to today) — the request was "not
+tied to a specific weekly date," which read as "don't force a week onto it, but a
+date is still fine." That was the wrong read: the actual ask was no date at all in
+the flow. Removed the date input from `GradesTab` entirely — the form is now just
+student → grade → points (optional) → notes (optional) → save. `weekOf` still gets
+set (to `new Date()` at submit time, silently) since the schema and sorting still
+need a real timestamp, but the supervisor is never asked for one. Also dropped the
+per-entry date from the grades list for the same reason. Verified live: no
+`input[type="date"]` anywhere on the tab, no "Date" label, and a grade saves and
+appears in the list correctly with no date involved at any point.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

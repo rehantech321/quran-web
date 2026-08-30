@@ -157,11 +157,9 @@
     "notes": "Notes",
     "notesPlaceholder": "e.g. Memorized Surah Al-Baqarah, page 12",
     "saveGrade": "Save grade",
-    "date": "Date",
     "addGrade": "Add grade",
     "selectStudent": "Select student",
     "selectStudentHint": "Only shows students in this circle",
-    "invalidWeek": "Please choose a valid date",
     "entryCount": "{{count}} grades"
   },
   "questions": {

@@ -157,11 +157,9 @@
     "notes": "ملاحظات",
     "notesPlaceholder": "مثال: حفظ من سورة البقرة، الصفحة ١٢",
     "saveGrade": "حفظ الدرجة",
-    "date": "التاريخ",
     "addGrade": "إضافة درجة",
     "selectStudent": "اختر الطالب",
     "selectStudentHint": "القائمة تعرض طلاب هذه الحلقة فقط",
-    "invalidWeek": "الرجاء اختيار تاريخ صحيح",
     "entryCount": "{{count}} درجة"
   },
   "questions": {

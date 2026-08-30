@@ -7,21 +7,6 @@ import { useCreateGrade, useGrades } from "@/queries/grades";
 import { useStudentsByCircle } from "@/queries/students";
 import type { CircleGrade } from "@/types/api";
 
-/**
- * Plain local "YYYY-MM-DD" for the date input's default value. Deliberately
- * avoids `.toISOString()` — converting a local midnight `Date` to an ISO
- * string shifts it to UTC, which rolls the calendar day backward for any
- * positive UTC offset (e.g. Asia/Riyadh, UTC+3) and silently defaulted the
- * picker to the wrong day.
- */
-function todayLocal(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 export function GradesTab({ circleId }: { circleId: string }) {
   const { t } = useTranslation();
   const { data: students } = useStudentsByCircle(circleId);
@@ -29,41 +14,30 @@ export function GradesTab({ circleId }: { circleId: string }) {
   const createGrade = useCreateGrade();
 
   const [studentId, setStudentId] = useState("");
-  const [date, setDate] = useState(todayLocal());
   const [grade, setGrade] = useState<number | "">("");
   const [points, setPoints] = useState<number | "">("");
   const [notes, setNotes] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
 
   const studentById = new Map((students ?? []).map((s) => [s._id, s.fullName]));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setFormError(null);
     if (!studentId || grade === "") return;
 
-    // A cleared/invalid native date input yields "" here, which `new Date()`
-    // turns into an Invalid Date — guard it explicitly rather than letting
-    // `.toISOString()` throw synchronously and silently drop the submission
-    // (the surrounding form has no error boundary, so an uncaught throw here
-    // previously meant the "Save grade" button just... did nothing).
-    const dateValue = new Date(date);
-    if (Number.isNaN(dateValue.getTime())) {
-      setFormError(t("grades.invalidWeek"));
-      return;
-    }
-
     try {
+      // Grades aren't something a supervisor picks a date for — they're
+      // just added, whenever. `weekOf` still records the actual moment
+      // (needed for sorting/history and the existing schema), it's just
+      // never asked of the supervisor: always "right now".
       await createGrade.mutateAsync({
         studentId,
         circleId,
-        weekOf: dateValue.toISOString(),
+        weekOf: new Date().toISOString(),
         grade: Number(grade),
         points: points === "" ? undefined : Number(points),
         notes: notes || undefined,
       });
       setStudentId("");
-      setDate(todayLocal());
       setGrade("");
       setPoints("");
       setNotes("");
@@ -115,26 +89,18 @@ export function GradesTab({ circleId }: { circleId: string }) {
               </option>
             ))}
           </Select>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label={t("grades.grade")}
-              type="number"
-              min={0}
-              max={100}
-              value={grade}
-              onChange={(e) =>
-                setGrade(e.target.value === "" ? "" : Number(e.target.value))
-              }
-              required
-              className="text-center text-lg font-semibold"
-            />
-            <Input
-              label={`${t("grades.date")} (${t("common.optional")})`}
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
+          <Input
+            label={t("grades.grade")}
+            type="number"
+            min={0}
+            max={100}
+            value={grade}
+            onChange={(e) =>
+              setGrade(e.target.value === "" ? "" : Number(e.target.value))
+            }
+            required
+            className="text-center text-lg font-semibold"
+          />
           <Input
             label={`${t("grades.points")} (${t("common.optional")})`}
             type="number"
@@ -149,9 +115,9 @@ export function GradesTab({ circleId }: { circleId: string }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
-          {(formError || createGrade.isError) && (
+          {createGrade.isError && (
             <p role="alert" className="text-sm text-danger">
-              {formError ?? getApiErrorMessage(createGrade.error, t("common.error"))}
+              {getApiErrorMessage(createGrade.error, t("common.error"))}
             </p>
           )}
           <Button
@@ -187,9 +153,6 @@ export function GradesTab({ circleId }: { circleId: string }) {
                   >
                     <div>
                       <p className="font-display text-2xl text-primary-900">{g.grade}</p>
-                      <p className="text-xs text-ink-600">
-                        {new Date(g.weekOf).toLocaleDateString()}
-                      </p>
                       {g.notes && <p className="mt-1 text-xs text-ink-600">{g.notes}</p>}
                     </div>
                     <p className="whitespace-nowrap text-sm font-medium text-primary-700">
