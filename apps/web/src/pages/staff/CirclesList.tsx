@@ -34,7 +34,7 @@ export function CirclesList() {
   const canManageCircles = user?.role === "admin" || user?.role === "super_admin";
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24">
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24 lg:max-w-5xl">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl text-primary-900">{t("circles.title")}</h1>
         <div className="flex items-center gap-2">
@@ -134,7 +134,7 @@ function ChampionsWidget() {
         <h2 className="font-display text-lg text-primary-900">{t("champions.title")}</h2>
         <p className="text-xs text-ink-600">{t("champions.subtitle")}</p>
       </div>
-      <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="relative grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {withChampion.map(({ circleId, circleName, champion }) => (
           <div
             key={circleId}

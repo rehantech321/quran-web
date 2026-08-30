@@ -18,7 +18,7 @@ export function CircleDetail() {
 
   if (isLoading || !circle) {
     return (
-      <div className="mx-auto max-w-3xl p-4">
+      <div className="mx-auto max-w-3xl p-4 lg:max-w-5xl">
         <Skeleton className="mb-4 h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -26,7 +26,7 @@ export function CircleDetail() {
   }
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24">
+    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24 lg:max-w-5xl">
       <div className="flex items-center justify-between">
         <div>
           <Link to="/app/circles" className="text-xs text-ink-600 hover:underline">

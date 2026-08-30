@@ -74,14 +74,22 @@ export function StaffLayout() {
       <AppShell
         navItems={navItems}
         header={
-          <div className="flex w-full items-center justify-between gap-2">
+          // This same node renders in two very different slots: a full-width
+          // mobile top bar (plenty of horizontal room) and a fixed ~208px-wide
+          // desktop sidebar header (AppShell's `w-60` aside). A single-row
+          // layout that looked fine on mobile overlapped illegibly in the
+          // sidebar once a real (longer) org name was involved — `md:` here
+          // means "in the narrow sidebar slot", so it stacks branding above
+          // the language/sign-out buttons only there, and truncates the name
+          // instead of letting it wrap mid-word.
+          <div className="flex w-full items-center justify-between gap-2 md:flex-col md:items-stretch md:gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <BrandMark className="h-12 w-14 shrink-0" />
-              <p className="font-display text-base text-primary-900">
+              <p className="min-w-0 truncate font-display text-base text-primary-900">
                 {org?.name ?? t("app.title")}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:flex-wrap">
               <button
                 type="button"
                 className="rounded-md px-2 py-1 text-xs text-ink-600 hover:bg-cream-200"
