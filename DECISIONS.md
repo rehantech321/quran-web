@@ -920,4 +920,83 @@ string surfacing as-is to an end user) had already caused two separate confusing
 "it doesn't work" reports (grades, this one) before it was worth fixing everywhere
 at once rather than one call site at a time as each one gets reported.
 
+## Post-launch — the real root cause of "points not adding": three stacked bugs, not one
+
+The recurring "points aren't being added" reports (attendance, grades, questions, all
+independently reported over several rounds) turned out to be three separate, stacked
+problems, each masking the next until the previous one was fixed. Diagnosed by reading
+production's own `pm2 logs` rather than continuing to guess and reproduce blind — every
+prior round in this log had reproduced locally with a fresh replica set, which never hit
+any of these three, since a throwaway dev DB is always freshly correct.
+
+**1. Express wasn't configured to trust Nginx's proxy.** No `app.set("trust proxy", ...)`
+existed anywhere. Nginx sets `X-Forwarded-For` on every request; without `trust proxy`,
+`express-rate-limit` refuses to compute a safe per-client key and throws, which
+`errorHandler` correctly caught and turned into a generic 500 — but that 500 read
+identically to a client-side network failure from the outside, and was the first thing
+masking the real issue underneath. Fixed with `app.set("trust proxy", 1)` in `app.ts`
+(exactly one hop — Nginx, on the same VPS). Also means every visitor was previously
+sharing one rate-limit bucket (Nginx's own address), not just the crash.
+
+To make this class of ambiguity diagnosable in the future rather than reasoned about
+from screenshots, `errorHandler.ts`'s generic 500 message was deliberately reworded to
+differ from the client's own generic fallback (`common.error`) — if the _exact server_
+wording ever shows up in a report, that alone proves the request reached the server and
+failed there, without needing a `pm2 logs` round-trip to find out. This is what let the
+next bug surface immediately from a single screenshot instead of another multi-message
+investigation.
+
+**2. MongoDB was never actually a replica set.** Once bug 1 stopped masking it,
+production's own error log showed `MongoServerError: Transaction numbers are only
+allowed on a replica set member or mongos` — confirming exactly what
+`DEPLOY_HOSTINGER_VPS.txt` already warns about (Part 0, Part 4): every points-awarding
+service (`attendance`, `grade`, `question`, `task`) uses a multi-document transaction,
+which a standalone `mongod` refuses outright. The user had switched `MONGODB_URI` at
+some point (mentioned earlier in this log when asking how to bootstrap just an admin
+account on a "changed" Mongo path) to a self-hosted `mongod` that was never initiated as
+a replica set. Fixed operationally on their VPS: added `replication: replSetName: rs0`
+to `/etc/mongod.conf`, `rs.initiate()`, and appended `?replicaSet=rs0` to `MONGODB_URI`
+— no code change, since the deploy guide's Option B already covers this correctly for a
+_fresh_ setup; this was a live database that had skipped that step.
+
+**3. `recomputeStudentPoints`'s aggregation never matched anything, once the request
+actually reached a working transaction.** With both bugs above fixed, an answer
+correctly wrote to `QuestionAnswer` and `PointsLedger` (confirmed directly via `mongosh`
+— 4 separate correct ledger entries, `points: 20` each) but `Student.totalPoints` stayed
+pinned at 0 regardless. Root cause: every route handler passes ids straight from a JWT
+payload or `req.params` — always a plain string at runtime — force-cast with `as never`
+to satisfy a `Types.ObjectId` parameter type (this pattern is repeated across every
+route file, not a one-off). `Model.find()`/`.create()` auto-cast a string against an
+ObjectId-typed schema field, so every other call in this chain worked correctly and hid
+the problem — but `Model.aggregate()` does no such casting; it's a raw BSON comparison,
+where a string is never equal to a stored ObjectId. `recomputeStudentPoints`'s
+`$match: { studentId }` therefore matched zero ledger rows on every single call, and
+happily "recomputed" a `totalPoints` of 0 back over the correct cached value — an
+authoritative-looking write, straight from the real ledger, of the wrong answer,
+_every time a student earned points_. Fixed with an explicit `new Types.ObjectId(studentId)`
+before the `$match` stage, which is idempotent whether the input was already an
+ObjectId or a string. The two other `.aggregate()` call sites in the codebase
+(`report.service.ts`, `circle.service.ts`) were checked and are _not_ vulnerable to this
+— both aggregate against ids taken from already-fetched Mongoose documents (real
+ObjectId instances), never straight from route/JWT input.
+
+Every student's `totalPoints`/`pointsBreakdown` in production is now stale relative to
+their (correct, never-lost) ledger history — the ledger is the source of truth and was
+never wrong, only its cached rollup on `Student`. `pnpm recompute-points`
+(`apps/api/src/scripts/recomputePoints.ts`) already existed as exactly the right repair
+tool for this, and was itself never buggy (it calls `recomputeStudentPoints` with real
+`Student.find().lean()` `_id`s, not route input) — it just needed the underlying
+function fixed first. Run once after this deploy to repair every existing student's
+totals from the ledger.
+
+**Also fixed while investigating (4):** answering a question, scanning attendance,
+recording a grade, and approving/rejecting a task all award points server-side but
+never invalidated the TanStack Query caches that display them — `["student", "me"]`
+(the student's own dashboard) and `["circles", circleId, "students"]`/
+`["students", studentId]` (the admin roster/profile). This is a distinct, real bug from
+bug 3 above, not the same one — even after bug 3's fix, the _first_ correct point award
+after a fresh page load would still have displayed stale cached data until something
+else happened to refetch it. All four mutations now invalidate the relevant profile/
+roster queries alongside the ones they already invalidated.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

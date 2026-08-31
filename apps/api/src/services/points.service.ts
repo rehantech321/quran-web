@@ -115,8 +115,18 @@ export async function recomputeStudentPoints(
   studentId: Types.ObjectId,
   session?: ClientSession,
 ) {
+  // Unlike `.find()`/`.create()`, `.aggregate()` does no schema-based
+  // casting — a raw BSON comparison of a string against a stored ObjectId
+  // never matches. Every route handler passes ids straight from a JWT
+  // payload or `req.params` (plain strings, force-cast with `as never` to
+  // satisfy this function's `Types.ObjectId` parameter type), so `studentId`
+  // here is a string at runtime far more often than not. Without this
+  // explicit re-cast, `$match` silently matched nothing and this function
+  // wrote a totalPoints of 0 back over the real, already-correct total on
+  // every single award — see DECISIONS.md.
+  const objectId = new Types.ObjectId(studentId);
   const query = PointsLedger.aggregate<{ _id: LedgerSource; total: number }>([
-    { $match: { studentId } },
+    { $match: { studentId: objectId } },
     { $group: { _id: "$source", total: { $sum: "$points" } } },
   ]);
   if (session) query.session(session);
