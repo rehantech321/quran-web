@@ -73,7 +73,14 @@ export function useUploadStudentPhoto(studentId: string) {
       const res = await apiClient.post<{ data: Student }>(
         `/students/${studentId}/photo`,
         form,
-        { headers: { "Content-Type": "multipart/form-data" } },
+        // The default (no timeout) means a request stuck on a bad mobile
+        // connection just hangs forever with no feedback. 60s gives real
+        // headroom even on a genuinely bad connection uploading the now
+        // browser-compressed (typically 100-300KB) photo — see
+        // imageCompression.ts. Measured a compressed real-world-sized photo
+        // landing right at the edge of a 30s budget under a severely
+        // throttled (~20KB/s) connection; 60s isn't just a round number.
+        { headers: { "Content-Type": "multipart/form-data" }, timeout: 60_000 },
       );
       return res.data.data;
     },

@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import axios from "axios";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,7 @@ import { createStudentSchema, updateStudentSchema } from "@halaqat/shared";
 
 import { Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
+import { compressImageForUpload } from "@/lib/imageCompression";
 import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
 import { useOrganization } from "@/queries/organizations";
 import { fetchStudentReport } from "@/queries/reports";
@@ -168,11 +170,23 @@ function StudentPhotoCard({
   const { t } = useTranslation();
   const uploadPhoto = useUploadStudentPhoto(studentId);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
 
   async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+    const rawFile = e.target.files?.[0];
     e.target.value = ""; // allow selecting the same file again later
-    if (!file) return;
+    if (!rawFile) return;
+
+    // A phone camera photo straight off the sensor is routinely 3-8MB —
+    // slow (sometimes unusably so on a weak mobile connection) to upload,
+    // and far more than a headshot needs. Shrinking it in the browser
+    // first turns "upload times out / silently fails on mobile data" into
+    // a sub-second, sub-500KB request. Falls back to the original file if
+    // compression can't run for some reason, so it never blocks an upload
+    // that would otherwise have worked.
+    setIsCompressing(true);
+    const file = await compressImageForUpload(rawFile);
+    setIsCompressing(false);
 
     const localPreview = URL.createObjectURL(file);
     setPreviewUrl(localPreview);
@@ -184,6 +198,7 @@ function StudentPhotoCard({
     }
   }
 
+  const isBusy = isCompressing || uploadPhoto.isPending;
   const displayUrl = previewUrl ?? photoUrl;
 
   return (
@@ -201,25 +216,40 @@ function StudentPhotoCard({
         )}
         <div className="min-w-0 flex-1">
           <label className="inline-flex h-10 cursor-pointer items-center justify-center rounded-lg bg-primary-900 px-4 text-sm font-medium text-cream-50">
-            {uploadPhoto.isPending ? t("common.loading") : t("student.takePhoto")}
+            {isBusy ? t("common.loading") : t("student.takePhoto")}
             <input
               type="file"
               accept="image/*"
               capture="environment"
               className="sr-only"
               onChange={onFileSelected}
-              disabled={uploadPhoto.isPending}
+              disabled={isBusy}
             />
           </label>
           {uploadPhoto.isError && (
             <p role="alert" className="mt-2 text-xs text-danger">
-              {getApiErrorMessage(uploadPhoto.error, t("common.error"))}
+              {getApiErrorMessage(uploadPhoto.error, t("common.error"))}{" "}
+              {describeUploadError(uploadPhoto.error)}
             </p>
           )}
         </div>
       </div>
     </Card>
   );
+}
+
+/**
+ * A bare "something went wrong" was hard to diagnose from a phone with no
+ * dev tools — appending the HTTP status (or "network" for a request that
+ * never got a response at all, e.g. a timeout on a slow connection) turns
+ * the next bug report into something actionable without needing screen
+ * sharing or server log access.
+ */
+function describeUploadError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    return error.response ? `(${error.response.status})` : "(network)";
+  }
+  return "";
 }
 
 function StudentAccessCard({

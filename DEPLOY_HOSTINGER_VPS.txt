@@ -420,6 +420,18 @@ Whenever you push new code to your git remote:
      pnpm -r build
      pm2 restart halaqat-api
 
+IMPORTANT: it must be `pnpm -r build` (builds every package) — NOT
+`pnpm --filter @halaqat/web build` or any other filtered/partial
+build. `pm2 restart halaqat-api` only restarts whatever is already
+sitting in apps/api/dist/ — if you only rebuild the web package, the
+API keeps running whatever old code was last compiled there, and
+every backend fix in the new code silently never takes effect, even
+though `git pull` succeeded and the frontend looks up to date. This
+is a very easy mistake to make when you're in a hurry to ship one
+frontend tweak — resist the shortcut; `pnpm -r build` only takes a
+little longer and building the wrong half is far more expensive to
+debug later.
+
 Nginx doesn't need restarting for a frontend-only change — it serves
 the newly-built apps/web/dist files immediately since it reads from
 disk on each request.

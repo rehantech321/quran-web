@@ -831,4 +831,60 @@ instead. Verified live: logged in as staff, then — without logging out, same
 browser — opened a student's link and confirmed the dashboard now loads correctly
 with no failed requests.
 
+## Post-launch — several "still broken" reports were actually a stale backend
+
+Grades, question-answer points, and barcode attendance were all reported broken
+again, all at once, in production — despite each being individually fixed and
+verified earlier in this log. That pattern (several unrelated features all
+regressing simultaneously) doesn't fit "4 new independent bugs"; it fits "the fixes
+never actually shipped." Turned out to be exactly that: the user's own redeploy
+routine was `pnpm --filter @halaqat/web build` instead of this guide's `pnpm -r
+build` — it only rebuilds `apps/web`, never `apps/api`, so `pm2 restart
+halaqat-api` kept restarting whatever was last compiled into `apps/api/dist/`
+_before_ every backend fix in this log, no matter how many times `git pull` +
+"rebuild" + restart ran. The frontend was always current; the backend was frozen.
+
+Worth remembering for next time this pattern shows up: several previously-fixed,
+previously-verified things all failing at once in production, with nothing wrong
+found on re-inspection of the code, is a strong signal to check _what's actually
+deployed_ before re-debugging the feature itself. Strengthened
+`DEPLOY_HOSTINGER_VPS.txt`'s redeploy section with an explicit warning against
+filtered/partial builds, since a filtered build still looks successful (`git pull`
+succeeds, the filtered build succeeds, `pm2 restart` succeeds) — nothing in that
+sequence fails or warns that half the app never rebuilt.
+
+## Post-launch — photo upload failing on mobile only, even after a correct redeploy
+
+The stale-backend theory (previous entry) explained grades/question-points/barcode
+but not this one — the user confirmed a correct `pnpm -r build` redeploy and mobile
+upload still failed, while desktop (same backend, same route) worked fine. Since
+both go through an identical server-side path, the difference had to be in what a
+phone camera actually produces: a real capture routinely runs 3-8MB, uncompressed
+relative to what a small circular avatar needs, and slow-to-outright-unreliable to
+push over a weak mobile connection (the user's own screenshot showed a live "17.4
+K/S" reading at the time of testing).
+
+Added `lib/imageCompression.ts#compressImageForUpload()` — decodes the file via
+`createImageBitmap`, downscales to a max 800px dimension (generous for an ≈80px
+avatar even at 2x density) via canvas, and re-encodes as JPEG at quality 0.8, run in
+`StudentPhotoCard` before every upload attempt. Falls back to the original file
+untouched if compression throws for any reason (unsupported format, canvas
+failure), so a failed compression attempt can never make an upload _more_ likely to
+fail than before this existed. Also added a 60s timeout to the upload request itself
+(previously none — a stuck request on a bad connection just hung forever with no
+feedback) and made the error message include the HTTP status (or "network" for a
+request that never got a response) instead of only ever a bare generic string,
+since a phone has no dev tools to inspect what actually happened.
+
+Verified with Playwright + CDP network emulation rather than by reasoning about it:
+a synthetic ~10MB photo (deliberately noisy/incompressible pixel data, worse than a
+real photo, to stress-test worst-case) compressed to ~258KB in ~230ms, and a full
+upload through a throttled (~150KB/s) mobile-emulated (Pixel 5) browser context
+completed in ~14s with the photo confirmed persisted (disk file + `photoUrl` in the
+DB + visible after a page reload) — not just "no error shown". Also specifically
+confirmed, by testing an extreme ~20KB/s throttle, that the failure mode at truly
+severe network degradation is a _clean, diagnosable timeout error_ rather than an
+indefinite hang or a silent failure — full resilience to arbitrarily bad connectivity
+isn't achievable client-side, but failing clearly is.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_
