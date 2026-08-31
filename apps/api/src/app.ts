@@ -27,6 +27,14 @@ import { createUsersRouter } from "@/routes/users.routes.js";
 export function createApp() {
   const app = express();
 
+  // Deployed behind exactly one reverse-proxy hop (Nginx, on the same VPS).
+  // Without this, Express ignores the X-Forwarded-For header Nginx sets, so
+  // every request looks like it comes from Nginx's own loopback address —
+  // express-rate-limit refuses to run under that condition (it would rate-limit
+  // all visitors as a single client) and throws, which was surfacing to users
+  // as a generic 500 on any rate-limited request (login, student-link lookup, ...).
+  app.set("trust proxy", 1);
+
   app.use(helmet());
   app.use(
     cors({
