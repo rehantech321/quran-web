@@ -95,3 +95,8 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+/** True when the request never got a response at all (dropped connection, timeout) — as opposed to the server responding with an error. Common on a weak mobile signal. */
+export function isNetworkError(error: unknown): boolean {
+  return axios.isAxiosError(error) && !error.response;
+}

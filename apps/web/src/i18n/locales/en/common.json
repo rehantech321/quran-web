@@ -15,6 +15,7 @@
     "close": "Close",
     "noResults": "No results",
     "error": "Something went wrong",
+    "networkError": "Connection is too weak to send that right now. Please try again.",
     "success": "Success",
     "points": "pts",
     "yes": "Yes",

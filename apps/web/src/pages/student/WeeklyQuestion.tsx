@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Skeleton } from "@/components/ui";
-import { getApiErrorMessage } from "@/lib/apiClient";
+import { getApiErrorMessage, isNetworkError } from "@/lib/apiClient";
 import { useActiveQuestion, useAnswerQuestion } from "@/queries/questions";
 import { cn } from "@/utils/cn";
 
@@ -182,7 +182,9 @@ export function WeeklyQuestion() {
         )}
         {answerQuestion.isError && (
           <p role="alert" className="text-center text-sm text-danger">
-            {getApiErrorMessage(answerQuestion.error, t("common.error"))}
+            {isNetworkError(answerQuestion.error)
+              ? t("common.networkError")
+              : getApiErrorMessage(answerQuestion.error, t("common.error"))}
           </p>
         )}
       </motion.div>
