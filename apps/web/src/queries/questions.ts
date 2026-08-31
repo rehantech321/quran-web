@@ -82,6 +82,11 @@ export function useAnswerQuestion() {
     retryDelay: 1000,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["student", "questions", "active"] });
+      // A correct answer awards points immediately server-side — the
+      // dashboard's cached totals (`useMyProfile`) need telling too, or the
+      // student sees "you earned 20 points" and then a stale 0 on their own
+      // profile until something else happens to refetch it.
+      queryClient.invalidateQueries({ queryKey: ["student", "me"] });
     },
   });
 }

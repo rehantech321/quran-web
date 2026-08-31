@@ -65,8 +65,14 @@ export function useApproveSubmission() {
       );
       return res.data.data;
     },
-    onSuccess: () => {
+    // Approval awards points server-side — the student's cached totalPoints
+    // needs invalidating too. The circle isn't known here (only taskId/
+    // submissionId), so invalidate every circle's student list rather than
+    // plumb it through — matches useDeleteStudent's existing broad pattern.
+    onSuccess: (submission) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", "pending-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["circles"] });
+      queryClient.invalidateQueries({ queryKey: ["students", submission.studentId] });
     },
   });
 }
@@ -89,8 +95,12 @@ export function useRejectSubmission() {
       );
       return res.data.data;
     },
-    onSuccess: () => {
+    // Rejecting a previously-approved submission reverses its points
+    // server-side — same cache-invalidation need as approve, above.
+    onSuccess: (submission) => {
       queryClient.invalidateQueries({ queryKey: ["tasks", "pending-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["circles"] });
+      queryClient.invalidateQueries({ queryKey: ["students", submission.studentId] });
     },
   });
 }

@@ -32,8 +32,13 @@ export function useCreateGrade() {
       const res = await apiClient.post<{ data: CircleGrade }>("/grades", input);
       return res.data.data;
     },
-    onSuccess: (grade) =>
-      queryClient.invalidateQueries({ queryKey: ["grades", grade.circleId] }),
+    onSuccess: (grade) => {
+      queryClient.invalidateQueries({ queryKey: ["grades", grade.circleId] });
+      queryClient.invalidateQueries({
+        queryKey: ["circles", grade.circleId, "students"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["students", grade.studentId] });
+    },
   });
 }
 
@@ -52,6 +57,10 @@ export function useUpdateGrade(circleId: string) {
       const res = await apiClient.patch<{ data: CircleGrade }>(`/grades/${id}`, input);
       return res.data.data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["grades", circleId] }),
+    onSuccess: (grade) => {
+      queryClient.invalidateQueries({ queryKey: ["grades", circleId] });
+      queryClient.invalidateQueries({ queryKey: ["circles", circleId, "students"] });
+      queryClient.invalidateQueries({ queryKey: ["students", grade.studentId] });
+    },
   });
 }

@@ -41,8 +41,14 @@ export function useScanAttendance(circleId: string) {
       });
       return res.data.data;
     },
-    onSuccess: () => {
+    // Attendance points are awarded server-side as part of this call — the
+    // student's cached totalPoints (shown in the circle roster and their own
+    // profile) needs invalidating too, or it stays stale until something
+    // else happens to refetch it.
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["attendance", circleId] });
+      queryClient.invalidateQueries({ queryKey: ["circles", circleId, "students"] });
+      queryClient.invalidateQueries({ queryKey: ["students", data.student._id] });
     },
   });
 }
@@ -62,8 +68,11 @@ export function useManualAttendance(circleId: string) {
       });
       return res.data.data;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] }),
+    onSuccess: (record) => {
+      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] });
+      queryClient.invalidateQueries({ queryKey: ["circles", circleId, "students"] });
+      queryClient.invalidateQueries({ queryKey: ["students", record.studentId] });
+    },
   });
 }
 
@@ -85,8 +94,11 @@ export function useUpdateAttendance(circleId: string) {
       });
       return res.data.data;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] }),
+    onSuccess: (record) => {
+      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] });
+      queryClient.invalidateQueries({ queryKey: ["circles", circleId, "students"] });
+      queryClient.invalidateQueries({ queryKey: ["students", record.studentId] });
+    },
   });
 }
 
@@ -103,7 +115,9 @@ export function useCloseSession(circleId: string) {
       );
       return res.data.data;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["attendance", circleId] });
+      queryClient.invalidateQueries({ queryKey: ["circles", circleId, "students"] });
+    },
   });
 }
