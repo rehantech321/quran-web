@@ -887,4 +887,37 @@ severe network degradation is a _clean, diagnosable timeout error_ rather than a
 indefinite hang or a silent failure — full resilience to arbitrarily bad connectivity
 isn't achievable client-side, but failing clearly is.
 
+## Post-launch — weekly question: couldn't reproduce "can't submit", but found and fixed a real silent-failure gap anyway
+
+Reported: student can't submit a weekly-question answer, and points aren't being
+awarded. Reproduced the actual flow twice against current code — a clean
+student-only session, and (matching how the user is most likely testing) a browser
+with an active staff session opening the student link in the same tab — and both
+worked correctly end to end: option select, submit enables, the server returns
+success, marks it correct, and awards the points. The screenshot the user sent
+showed the "Submit answer" button in its muted/disabled color, which is exactly
+what it looks like _before_ selecting an option — most likely explanation is the
+screenshot was taken before tapping an answer, not a broken button.
+
+While reproducing it, found a real bug regardless: `WeeklyQuestion`'s `onSubmit` had
+no error handling at all around `answerQuestion.mutateAsync(...)` — if the mutation
+ever rejects (answering the same question twice, a network hiccup, anything), that's
+an unhandled promise rejection with **zero visible feedback**: no error, no state
+change, the button just sits there. This is exactly the class of bug this app has
+hit before (grades, photo upload) — a failure that looks identical to "nothing is
+happening" from the user's side because nothing renders to say otherwise. Fixed by
+wrapping it in try/catch and surfacing `answerQuestion.isError` via
+`getApiErrorMessage`, and added a small hint ("Select an answer first") under the
+disabled button so its disabled state is never ambiguous.
+
+While in there, also swept every other raw internal-code `ConflictError`/
+`ValidationError` message across the API (`question_already_answered`,
+`student_not_in_question_circle`, `task_submission_already_approved`,
+`circle_has_active_students`, `student_not_in_circle`,
+`attendance_already_recorded`, `insufficient_privilege_to_assign_role`) and replaced
+them all with actual readable sentences — this exact pattern (a raw snake_case
+string surfacing as-is to an end user) had already caused two separate confusing
+"it doesn't work" reports (grades, this one) before it was worth fixing everywhere
+at once rather than one call site at a time as each one gets reported.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

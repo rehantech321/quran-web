@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Skeleton } from "@/components/ui";
+import { getApiErrorMessage } from "@/lib/apiClient";
 import { useActiveQuestion, useAnswerQuestion } from "@/queries/questions";
 import { cn } from "@/utils/cn";
 
@@ -94,15 +95,23 @@ export function WeeklyQuestion() {
 
   async function onSubmit() {
     if (!question || !selected) return;
-    const data = await answerQuestion.mutateAsync({
-      questionId: question._id,
-      selectedOptionKey: selected,
-    });
-    setResult({
-      isCorrect: data.answer.isCorrect,
-      pointsAwarded: data.answer.pointsAwarded,
-      explanation: data.question.explanation,
-    });
+    try {
+      const data = await answerQuestion.mutateAsync({
+        questionId: question._id,
+        selectedOptionKey: selected,
+      });
+      setResult({
+        isCorrect: data.answer.isCorrect,
+        pointsAwarded: data.answer.pointsAwarded,
+        explanation: data.question.explanation,
+      });
+    } catch {
+      // No error boundary catches a rejected mutateAsync here — without this,
+      // a failed submit (e.g. answering the same question twice, or a
+      // network hiccup) failed completely silently: the button just sat
+      // there with no feedback at all. Surfaced below via
+      // `answerQuestion.isError` instead.
+    }
   }
 
   if (isLoading) {
@@ -166,6 +175,16 @@ export function WeeklyQuestion() {
         <Button onClick={onSubmit} disabled={!selected || answerQuestion.isPending}>
           {t("weeklyQuestion.submit")}
         </Button>
+        {!selected && (
+          <p className="text-center text-xs text-ink-600">
+            {t("weeklyQuestion.selectFirst")}
+          </p>
+        )}
+        {answerQuestion.isError && (
+          <p role="alert" className="text-center text-sm text-danger">
+            {getApiErrorMessage(answerQuestion.error, t("common.error"))}
+          </p>
+        )}
       </motion.div>
     </div>
   );

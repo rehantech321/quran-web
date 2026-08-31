@@ -77,12 +77,10 @@ export function createAuthRouter() {
   router.post("/refresh", authRateLimiter, async (req, res) => {
     const token = req.cookies?.[REFRESH_COOKIE_NAME] as string | undefined;
     if (!token) {
-      res
-        .status(401)
-        .json({
-          success: false,
-          error: { code: "UNAUTHORIZED", message: "Missing refresh token" },
-        });
+      res.status(401).json({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Missing refresh token" },
+      });
       return;
     }
 
@@ -90,12 +88,10 @@ export function createAuthRouter() {
     try {
       payload = verifyRefreshToken(token);
     } catch {
-      res
-        .status(401)
-        .json({
-          success: false,
-          error: { code: "UNAUTHORIZED", message: "Invalid or expired refresh token" },
-        });
+      res.status(401).json({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Invalid or expired refresh token" },
+      });
       return;
     }
 
@@ -105,12 +101,10 @@ export function createAuthRouter() {
       deletedAt: null,
     });
     if (!user) {
-      res
-        .status(401)
-        .json({
-          success: false,
-          error: { code: "UNAUTHORIZED", message: "User no longer active" },
-        });
+      res.status(401).json({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "User no longer active" },
+      });
       return;
     }
 
@@ -130,12 +124,10 @@ export function createAuthRouter() {
   router.get("/me", requireAuth, async (req, res) => {
     const user = await User.findById(req.user!.id);
     if (!user) {
-      res
-        .status(404)
-        .json({
-          success: false,
-          error: { code: "NOT_FOUND", message: "User not found" },
-        });
+      res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "User not found" },
+      });
       return;
     }
     res.json({ success: true, data: toPublicUser(user) });

@@ -81,7 +81,7 @@ export async function scanAttendance(params: ScanAttendanceParams) {
   });
   if (!student) throw new NotFoundError("student");
   if (String(student.circleId) !== String(params.circleId)) {
-    throw new ConflictError("student_not_in_circle");
+    throw new ConflictError("This student is not in this circle");
   }
 
   const { org, circle } = await loadOrgAndCircle(params.organizationId, params.circleId);
@@ -168,7 +168,10 @@ export async function recordManualAttendance(params: RecordManualAttendanceParam
     studentId: params.studentId,
     sessionDate,
   });
-  if (existing) throw new ConflictError("attendance_already_recorded");
+  if (existing)
+    throw new ConflictError(
+      "Attendance has already been recorded for this student today",
+    );
 
   const status = resolveManualStatus(
     params.status,

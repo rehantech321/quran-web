@@ -254,6 +254,7 @@
     "title": "Weekly question",
     "noActive": "No question available right now — check back next week!",
     "submit": "Submit answer",
+    "selectFirst": "Select an answer first",
     "correct": "Correct!",
     "incorrect": "Incorrect",
     "earnedPoints": "You earned {{points}} points"

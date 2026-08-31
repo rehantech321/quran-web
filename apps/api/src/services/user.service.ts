@@ -25,7 +25,7 @@ function assertCreatableRole(creatorRole: Role, targetRole: Role) {
   if (creatorRole === "super_admin") return;
   if (creatorRole === "admin" && (targetRole === "supervisor" || targetRole === "admin"))
     return;
-  throw new ValidationError("insufficient_privilege_to_assign_role");
+  throw new ValidationError("You do not have permission to assign that role");
 }
 
 export async function createStaffMember(

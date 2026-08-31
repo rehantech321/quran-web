@@ -141,14 +141,14 @@ export async function answerQuestion(params: AnswerQuestionParams) {
   }).lean();
   if (!student) throw new NotFoundError("student");
   if (String(student.circleId) !== String(question.circleId)) {
-    throw new ConflictError("student_not_in_question_circle");
+    throw new ConflictError("This question is not for your circle");
   }
 
   const alreadyAnswered = await QuestionAnswer.findOne({
     questionId: params.questionId,
     studentId: params.studentId,
   });
-  if (alreadyAnswered) throw new ConflictError("question_already_answered");
+  if (alreadyAnswered) throw new ConflictError("You have already answered this question");
 
   const isCorrect = params.selectedOptionKey === question.correctOptionKey;
   const pointsAwarded = isCorrect ? question.points : 0;
@@ -175,7 +175,7 @@ export async function answerQuestion(params: AnswerQuestionParams) {
         answer = created;
       } catch (err) {
         if (isDuplicateKeyError(err))
-          throw new ConflictError("question_already_answered");
+          throw new ConflictError("You have already answered this question");
         throw err;
       }
 

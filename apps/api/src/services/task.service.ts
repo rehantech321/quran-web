@@ -193,7 +193,7 @@ export async function approveSubmission(params: ApproveSubmissionParams) {
   });
   if (!submission) throw new NotFoundError("task_submission");
   if (submission.approvalStatus === "approved") {
-    throw new ConflictError("task_submission_already_approved");
+    throw new ConflictError("This submission has already been approved");
   }
 
   const task = await WeeklyTask.findById(submission.taskId).lean();

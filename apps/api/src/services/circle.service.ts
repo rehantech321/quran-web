@@ -140,7 +140,9 @@ export async function deleteCircle(
     deletedAt: null,
   });
   if (activeStudentCount > 0) {
-    throw new ConflictError("circle_has_active_students");
+    throw new ConflictError(
+      "This circle still has active students and cannot be deleted",
+    );
   }
 
   circle.deletedAt = new Date();
