@@ -8,7 +8,7 @@ import { z } from "zod";
 import { loginSchema } from "@halaqat/shared";
 
 import { BrandMark } from "@/components/BrandMark";
-import { CornerArabesque, GirihPattern, MihrabArch } from "@/components/ornament";
+import { CornerArabesque, MihrabArch } from "@/components/ornament";
 import { Button, Card, CardBody, Input } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useLogin } from "@/queries/auth";
@@ -53,14 +53,12 @@ export function Login() {
           // him in frame; anchoring top keeps faces in frame over floor/carpet.
           className="absolute inset-0 h-full w-full object-cover object-right-top"
         />
-        {/* Flat neutral scrim first (works regardless of how bright/busy the
-            photo is), then a stronger directional wash behind the text —
-            deliberately black, not the brand green: a dark-green overlay
-            under the (also dark green) logo let the logo blend into its own
-            background instead of standing out. */}
-        <div className="absolute inset-0 bg-black/40" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/15 lg:bg-gradient-to-r lg:from-black/15 lg:via-black/60 lg:to-black/90" />
-        <GirihPattern color="var(--c-gold-400)" opacity={0.08} tileSize={88} />
+        {/* A single light directional wash, just enough for the text to stay
+            legible — deliberately black, not the brand green: a dark-green
+            overlay under the (also dark green) logo let the logo blend into
+            its own background instead of standing out. The photo itself
+            should still read clearly through it, not be buried under it. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-transparent lg:bg-gradient-to-r lg:from-transparent lg:via-black/30 lg:to-black/65" />
         <MihrabArch
           variant="cap"
           className="absolute inset-x-0 -top-1 h-14 w-full text-primary-950/90 lg:hidden"
