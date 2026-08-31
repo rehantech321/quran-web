@@ -96,7 +96,20 @@ export function getApiErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** True when the request never got a response at all (dropped connection, timeout) — as opposed to the server responding with an error. Common on a weak mobile signal. */
-export function isNetworkError(error: unknown): boolean {
-  return axios.isAxiosError(error) && !error.response;
+/**
+ * True when this wasn't really a rejection from *our* API at all: either the
+ * request never got any response (dropped connection, timeout), or it got a
+ * response that isn't our API's `{success:false, error:{...}}` shape — which
+ * means something between the phone and our server intercepted it (a weak
+ * mobile connection commonly gets a carrier-injected error/interstitial page
+ * instead of ever reaching Nginx). Both cases are worth a distinct "your
+ * connection is the problem" message instead of a generic app error, and
+ * both are worth an automatic retry since the payload itself was never the
+ * issue.
+ */
+export function isConnectionProblem(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  if (!error.response) return true;
+  const body = error.response.data as ApiErrorBody | undefined;
+  return !(body?.success === false && body.error?.message);
 }

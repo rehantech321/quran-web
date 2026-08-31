@@ -1,10 +1,8 @@
-import axios from "axios";
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { CreateQuestionInput } from "@halaqat/shared";
 
-import { apiClient } from "@/lib/apiClient";
+import { apiClient, isConnectionProblem } from "@/lib/apiClient";
 import type { QuestionAnswer, WeeklyQuestion } from "@/types/api";
 
 export function useQuestions(circleId: string | undefined) {
@@ -74,13 +72,13 @@ export function useAnswerQuestion() {
       }>(`/questions/${questionId}/answer`, { selectedOptionKey });
       return res.data.data;
     },
-    // A weak mobile connection can drop the request before any response
-    // arrives at all (no `error.response`) — retry that case a couple of
-    // times, since the payload is tiny and worth one more try. A real
-    // server rejection (already answered, wrong circle, etc.) always comes
-    // back with a response and must not be retried.
-    retry: (failureCount, error) =>
-      axios.isAxiosError(error) && !error.response && failureCount < 2,
+    // A weak mobile connection can drop the request, or get intercepted
+    // before it ever reaches our server (e.g. a carrier-injected error page)
+    // — retry that case a couple of times, since the payload is tiny and
+    // worth one more try. A real rejection from our own API (already
+    // answered, wrong circle, etc.) always comes back with our API's own
+    // JSON error shape and must not be retried.
+    retry: (failureCount, error) => isConnectionProblem(error) && failureCount < 2,
     retryDelay: 1000,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["student", "questions", "active"] });

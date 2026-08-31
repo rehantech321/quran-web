@@ -50,7 +50,17 @@ function mapError(err: unknown): ErrorBody {
   if (err instanceof InvalidPinError) {
     return { status: 401, code: "INVALID_PIN", message: "Incorrect PIN" };
   }
-  return { status: 500, code: "INTERNAL_ERROR", message: "Something went wrong" };
+  // Deliberately worded differently from the client's own generic fallback
+  // (apps/web's `common.error`) — if this exact text ever shows up in a user
+  // report or screenshot, it proves the request truly reached our server and
+  // failed here, as opposed to a dropped connection or something upstream
+  // (Nginx, a mobile carrier's proxy, ...) never getting this far. Check
+  // `pm2 logs` for the "Unhandled error" entry this also logs.
+  return {
+    status: 500,
+    code: "INTERNAL_ERROR",
+    message: "A server error occurred while processing your request",
+  };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
