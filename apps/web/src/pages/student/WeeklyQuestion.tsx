@@ -1,11 +1,12 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button, Skeleton } from "@/components/ui";
 import { getApiErrorMessage, isConnectionProblem } from "@/lib/apiClient";
 import { useActiveQuestion, useAnswerQuestion } from "@/queries/questions";
 import { cn } from "@/utils/cn";
+import { shuffle } from "@/utils/shuffle";
 
 interface AnswerResult {
   isCorrect: boolean;
@@ -93,6 +94,19 @@ export function WeeklyQuestion() {
   const [selected, setSelected] = useState<string | null>(null);
   const [result, setResult] = useState<AnswerResult | null>(null);
 
+  // Whoever created the question tends to leave the correct answer wherever
+  // they typed it (often the first option, out of habit) — shuffling display
+  // order here means a student can never learn "the right answer is always
+  // in this position" regardless of how it was entered. Grading only ever
+  // compares by `key`, so display order has no effect on correctness.
+  // Memoized on the question's id so it stays put while the student is
+  // deciding, even if the underlying query silently refetches in the
+  // background.
+  const displayOptions = useMemo(
+    () => (question ? shuffle(question.options) : []),
+    [question],
+  );
+
   async function onSubmit() {
     if (!question || !selected) return;
     try {
@@ -155,7 +169,7 @@ export function WeeklyQuestion() {
           {question.questionText}
         </p>
         <div className="flex flex-col gap-2">
-          {question.options.map((opt) => (
+          {displayOptions.map((opt, i) => (
             <button
               key={opt.key}
               type="button"
@@ -167,7 +181,11 @@ export function WeeklyQuestion() {
                   : "border-cream-200 bg-cream-50 text-ink-900 hover:border-cream-200/70",
               )}
             >
-              <span className="me-2 font-semibold">{opt.key}.</span>
+              {/* Labeled by display position (A, B, C, ...), not the option's
+                  stored key — the stored key is only ever used for grading,
+                  never shown, so a shuffled visual order never looks "out of
+                  order" to the student. */}
+              <span className="me-2 font-semibold">{String.fromCharCode(65 + i)}.</span>
               {opt.text}
             </button>
           ))}
