@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import {
   circleIdParamSchema,
+  createManualLedgerEntrySchema,
   createStudentSchema,
   pointsHistoryQuerySchema,
   studentIdParamSchema,
@@ -19,6 +20,7 @@ import { STUDENT_PHOTOS_DIR, uploadStudentPhoto } from "../middleware/upload.js"
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 import { getStudentReport } from "../services/report.service.js";
 import {
+  addManualPoints,
   createStudent,
   deleteStudent,
   generateStudentQrPng,
@@ -237,6 +239,31 @@ export function createStudentsRouter() {
         query,
       );
       res.json({ success: true, data: history });
+    },
+  );
+
+  const manualPointsBodySchema = createManualLedgerEntrySchema.omit({ studentId: true });
+
+  router.post(
+    "/students/:id/points",
+    requireRole("admin", "super_admin", "supervisor"),
+    validateParams(studentIdParamSchema),
+    validateBody(manualPointsBodySchema),
+    async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
+      const updated = await addManualPoints(
+        req.user!.organizationId,
+        req.params.id!,
+        req.body,
+        req.user!.id as never,
+      );
+      res.json({ success: true, data: updated });
     },
   );
 

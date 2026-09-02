@@ -112,7 +112,11 @@
     "circle": "Circle",
     "totalPoints": "Total points",
     "deleteConfirm": "Are you sure you want to delete this student?",
-    "parentPhoneHint": "Include the country code (e.g. 9665XXXXXXXX) so the WhatsApp button works"
+    "parentPhoneHint": "Include the country code (e.g. 9665XXXXXXXX) so the WhatsApp button works",
+    "adjustPoints": "Adjust points",
+    "pointsAmount": "Points",
+    "pointsAmountHint": "Positive to add, negative to deduct",
+    "pointsReason": "Reason"
   },
   "whatsapp": {
     "title": "Contact parent/guardian on WhatsApp",

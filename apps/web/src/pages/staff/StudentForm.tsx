@@ -15,6 +15,7 @@ import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
 import { useOrganization } from "@/queries/organizations";
 import { fetchStudentReport } from "@/queries/reports";
 import {
+  useAddManualPoints,
   useCreateStudent,
   useDeleteStudent,
   useRegenerateStudentSlug,
@@ -138,6 +139,10 @@ export function StudentForm() {
       )}
 
       {isEditing && studentId && student && (
+        <AdjustPointsCard studentId={studentId} totalPoints={student.totalPoints} />
+      )}
+
+      {isEditing && studentId && student && (
         <StudentAccessCard studentId={studentId} accessSlug={student.accessSlug} />
       )}
 
@@ -250,6 +255,79 @@ function describeUploadError(error: unknown): string {
     return error.response ? `(${error.response.status})` : "(network)";
   }
   return "";
+}
+
+/**
+ * A manual points adjustment — for bonuses, corrections, anything that
+ * doesn't fit attendance/grades/questions/tasks. Always additive (a signed
+ * delta, never an absolute total to set): the points engine is an
+ * append-only ledger (SPEC.md §5), so "set this student's points to X" isn't
+ * an operation it supports — only "record that N points were awarded (or
+ * deducted) just now, with a reason," same as every other point source.
+ */
+function AdjustPointsCard({
+  studentId,
+  totalPoints,
+}: {
+  studentId: string;
+  totalPoints: number;
+}) {
+  const { t } = useTranslation();
+  const addPoints = useAddManualPoints(studentId);
+  const [amount, setAmount] = useState<number | "">("");
+  const [reason, setReason] = useState("");
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (amount === "" || amount === 0 || !reason.trim()) return;
+    await addPoints.mutateAsync({ points: Number(amount), reason: reason.trim() });
+    setAmount("");
+    setReason("");
+  }
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-1 text-sm font-semibold text-ink-900">
+        {t("student.adjustPoints")}
+      </h2>
+      <p className="mb-3 text-xs text-ink-600">
+        {t("student.totalPoints")}: {totalPoints}
+      </p>
+      <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label={t("student.pointsAmount")}
+            type="number"
+            value={amount}
+            onChange={(e) =>
+              setAmount(e.target.value === "" ? "" : Number(e.target.value))
+            }
+            hint={t("student.pointsAmountHint")}
+          />
+          <Input
+            label={t("student.pointsReason")}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </div>
+        {addPoints.isError && (
+          <p role="alert" className="text-sm text-danger">
+            {getApiErrorMessage(addPoints.error, t("common.error"))}
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="sm"
+          variant="secondary"
+          disabled={
+            addPoints.isPending || amount === "" || amount === 0 || !reason.trim()
+          }
+        >
+          {addPoints.isPending ? t("common.loading") : t("common.add")}
+        </Button>
+      </form>
+    </Card>
+  );
 }
 
 function StudentAccessCard({

@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
-import type { CreateStudentInput, UpdateStudentInput } from "@halaqat/shared";
+import type {
+  CreateManualLedgerEntryInput,
+  CreateStudentInput,
+  UpdateStudentInput,
+} from "@halaqat/shared";
 
 import { apiClient } from "@/lib/apiClient";
 import type { PointsLedgerEntry, Student } from "@/types/api";
@@ -88,6 +92,28 @@ export function useUploadStudentPhoto(studentId: string) {
       queryClient.invalidateQueries({ queryKey: ["students", studentId] });
       queryClient.invalidateQueries({
         queryKey: ["circles", student.circleId, "students"],
+      });
+    },
+  });
+}
+
+export function useAddManualPoints(studentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Omit<CreateManualLedgerEntryInput, "studentId">) => {
+      const res = await apiClient.post<{ data: Student }>(
+        `/students/${studentId}/points`,
+        input,
+      );
+      return res.data.data;
+    },
+    onSuccess: (student) => {
+      queryClient.invalidateQueries({ queryKey: ["students", studentId] });
+      queryClient.invalidateQueries({
+        queryKey: ["circles", student.circleId, "students"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["students", studentId, "points-history"],
       });
     },
   });

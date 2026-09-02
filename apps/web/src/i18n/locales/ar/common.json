@@ -112,7 +112,11 @@
     "circle": "الحلقة",
     "totalPoints": "مجموع النقاط",
     "deleteConfirm": "هل أنت متأكد من حذف هذا الطالب؟",
-    "parentPhoneHint": "أدخل الرقم مع رمز الدولة (مثال: 9665XXXXXXXX) ليعمل زر واتساب"
+    "parentPhoneHint": "أدخل الرقم مع رمز الدولة (مثال: 9665XXXXXXXX) ليعمل زر واتساب",
+    "adjustPoints": "تعديل النقاط",
+    "pointsAmount": "النقاط",
+    "pointsAmountHint": "موجب للإضافة، سالب للخصم",
+    "pointsReason": "السبب"
   },
   "whatsapp": {
     "title": "التواصل مع ولي الأمر عبر واتساب",

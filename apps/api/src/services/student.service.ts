@@ -1,4 +1,4 @@
-import type { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import QRCode from "qrcode";
 
 import type {
@@ -13,6 +13,7 @@ import { Circle } from "../models/Circle.js";
 import { PointsLedger } from "../models/PointsLedger.js";
 import { Student } from "../models/Student.js";
 import { User } from "../models/User.js";
+import { awardPoints } from "./points.service.js";
 import { generateStudentAccessSlug } from "../utils/slug.js";
 
 async function assertCircleInOrg(organizationId: string, circleId: string) {
@@ -161,4 +162,43 @@ export async function getStudentPointsHistory(
   ]);
 
   return { entries, total, page: pagination.page, limit: pagination.limit };
+}
+
+/**
+ * A staff-entered points adjustment with no other domain event behind it
+ * (a bonus, a correction, anything that doesn't fit attendance/grade/
+ * question/task) — the `manual` ledger source SPEC.md §5 already reserves,
+ * previously never wired to an actual route. `points` can be negative to
+ * deduct. Unlike the other point sources, there's no separate record this
+ * entry documents, so `sourceRefId` is just a freshly minted id identifying
+ * this ledger entry itself.
+ */
+export async function addManualPoints(
+  organizationId: string,
+  studentId: Types.ObjectId | string,
+  input: { points: number; reason: string },
+  createdBy: Types.ObjectId,
+) {
+  const student = await getStudent(organizationId, studentId);
+
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await awardPoints({
+        organizationId: student.organizationId,
+        circleId: student.circleId,
+        studentId: student._id,
+        source: "manual",
+        sourceRefId: new Types.ObjectId(),
+        points: input.points,
+        reason: input.reason,
+        createdBy,
+        session,
+      });
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  return getStudent(organizationId, studentId);
 }
