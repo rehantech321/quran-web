@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateTaskInput, SubmissionStatus } from "@halaqat/shared";
+import type { CreateTaskInput, SubmissionStatus, UpdateTaskInput } from "@halaqat/shared";
 
 import { apiClient } from "@/lib/apiClient";
 import type { TaskSubmission, WeeklyTask } from "@/types/api";
@@ -27,6 +27,28 @@ export function useCreateTask() {
     },
     onSuccess: (task) =>
       queryClient.invalidateQueries({ queryKey: ["tasks", task.circleId] }),
+  });
+}
+
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string } & UpdateTaskInput) => {
+      const res = await apiClient.patch<{ data: WeeklyTask }>(`/tasks/${id}`, input);
+      return res.data.data;
+    },
+    onSuccess: (task) =>
+      queryClient.invalidateQueries({ queryKey: ["tasks", task.circleId] }),
+  });
+}
+
+export function useDeleteTask(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (taskId: string) => {
+      await apiClient.delete(`/tasks/${taskId}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks", circleId] }),
   });
 }
 

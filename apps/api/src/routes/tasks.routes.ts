@@ -15,6 +15,7 @@ import { validateBody, validateParams, validateQuery } from "../middleware/valid
 import {
   approveSubmission,
   createTask,
+  deleteTask,
   getMyTasks,
   getPendingApprovals,
   getSubmissionWithTask,
@@ -113,6 +114,18 @@ export function createTasksRouter() {
       res.json({ success: true, data: task });
     },
   );
+
+  router.delete("/:id", validateParams(taskIdParamSchema), async (req, res) => {
+    const existing = await getTask(req.user!.organizationId as never, req.params.id!);
+    await assertSupervisorOwnsCircle(
+      req.user!.organizationId,
+      req.user!.role,
+      req.user!.id,
+      existing.circleId.toString(),
+    );
+    await deleteTask(req.user!.organizationId as never, req.params.id!);
+    res.status(204).end();
+  });
 
   router.get("/pending-approvals", validateQuery(taskQuerySchema), async (req, res) => {
     const query = req.query as unknown as z.infer<typeof taskQuerySchema>;

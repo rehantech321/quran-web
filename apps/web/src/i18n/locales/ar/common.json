@@ -188,6 +188,8 @@
     "selectedStudents": "طلاب محددون",
     "addTask": "إضافة مهمة",
     "createTask": "إنشاء المهمة",
+    "editTask": "تعديل المهمة",
+    "deleteConfirm": "هل أنت متأكد من حذف هذه المهمة؟",
     "pendingApprovals": "بانتظار الموافقة",
     "approve": "قبول",
     "reject": "رفض",

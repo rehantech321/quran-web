@@ -14,6 +14,7 @@ export async function listTasks(
 ) {
   return WeeklyTask.find({
     organizationId,
+    deletedAt: null,
     ...(filter.circleId ? { circleId: filter.circleId } : {}),
   }).sort({ dueDate: -1, createdAt: -1 });
 }
@@ -22,7 +23,7 @@ export async function getTask(
   organizationId: Types.ObjectId,
   taskId: Types.ObjectId | string,
 ) {
-  const task = await WeeklyTask.findOne({ _id: taskId, organizationId });
+  const task = await WeeklyTask.findOne({ _id: taskId, organizationId, deletedAt: null });
   if (!task) throw new NotFoundError("task");
   return task;
 }
@@ -47,6 +48,22 @@ export async function updateTask(
 }
 
 /**
+ * Soft-deletes the task itself — never its submissions or the points they
+ * already awarded. `PointsLedger`/`TaskSubmission` are append-only history
+ * (SPEC.md §5.2); hiding a task from future listings and approval queues
+ * must never touch what already happened under it.
+ */
+export async function deleteTask(
+  organizationId: Types.ObjectId,
+  taskId: Types.ObjectId | string,
+) {
+  const task = await getTask(organizationId, taskId);
+  task.deletedAt = new Date();
+  await task.save();
+  return task;
+}
+
+/**
  * Student-scoped: every published task assigned to the student's circle (or
  * directly to them), each paired with their own submission if one exists, split
  * into active (anything not yet a final approval) vs. completed (approved).
@@ -65,6 +82,7 @@ export async function getMyTasks(
   const tasks = await WeeklyTask.find({
     organizationId,
     isPublished: true,
+    deletedAt: null,
     $or: [
       { assignedTo: "circle", circleId: student.circleId },
       { assignedTo: "students", studentIds: studentId },
@@ -99,6 +117,7 @@ export async function getPendingApprovals(
 ) {
   const tasks = await WeeklyTask.find({
     organizationId,
+    deletedAt: null,
     ...(filter.circleId ? { circleId: filter.circleId } : {}),
     ...(filter.circleIds ? { circleId: { $in: filter.circleIds } } : {}),
   }).lean();

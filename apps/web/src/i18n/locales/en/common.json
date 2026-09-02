@@ -188,6 +188,8 @@
     "selectedStudents": "Selected students",
     "addTask": "Add task",
     "createTask": "Create task",
+    "editTask": "Edit task",
+    "deleteConfirm": "Are you sure you want to delete this task?",
     "pendingApprovals": "Pending approval",
     "approve": "Approve",
     "reject": "Reject",
