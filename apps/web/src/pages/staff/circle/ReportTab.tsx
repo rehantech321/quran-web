@@ -75,6 +75,11 @@ export function ReportTab({ circleId }: { circleId: string }) {
                   {t("student.level")}: {row.level}
                 </span>
               )}
+              {row.notes && (
+                <span>
+                  {t("student.notes")}: {row.notes}
+                </span>
+              )}
               <span>
                 {t("reports.avgAttendance")}: {row.attendanceRate ?? "—"}%
               </span>

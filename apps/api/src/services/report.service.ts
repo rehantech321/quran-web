@@ -41,6 +41,7 @@ export interface StudentReportRow {
   studentId: Types.ObjectId;
   fullName: string;
   level: string | null;
+  notes: string | null;
   attendanceRate: number | null;
   avgGrade: number | null;
   latestGrade: number | null;
@@ -108,6 +109,7 @@ export async function getCircleReport(
       studentId: student._id,
       fullName: student.fullName,
       level: student.level ?? null,
+      notes: student.notes ?? null,
       attendanceRate: percentage(
         studentAttendance.filter((a) => a.status === "present" || a.status === "late")
           .length,
@@ -207,6 +209,7 @@ export async function getStudentReport(
       id: student._id,
       fullName: student.fullName,
       level: student.level ?? null,
+      notes: student.notes ?? null,
       circleId: student.circleId,
       totalPoints: student.totalPoints,
       pointsBreakdown: student.pointsBreakdown,
@@ -347,6 +350,7 @@ export async function getCircleChampions(
 const CIRCLE_REPORT_COLUMNS_CSV = [
   { key: "fullName", header: "الاسم" },
   { key: "level", header: "المستوى" },
+  { key: "notes", header: "ملاحظات" },
   { key: "attendanceRate", header: "نسبة الحضور %" },
   { key: "avgGrade", header: "متوسط الدرجات" },
   { key: "latestGrade", header: "آخر درجة" },
@@ -355,15 +359,20 @@ const CIRCLE_REPORT_COLUMNS_CSV = [
   { key: "totalPoints", header: "مجموع النقاط" },
 ];
 
+// Widths sum to <= the usable A4 page width (515pt at 40pt margins) —
+// see utils/pdf.ts. Trimmed slightly across the board to make room for
+// "notes", which in practice holds a short value (e.g. a surah name), same
+// as "level" — not a long paragraph.
 const CIRCLE_REPORT_COLUMNS_PDF = [
-  { key: "fullName", header: "الاسم", width: 100 },
-  { key: "level", header: "المستوى", width: 70 },
-  { key: "attendanceRate", header: "الحضور %", width: 60 },
-  { key: "avgGrade", header: "متوسط الدرجات", width: 65 },
-  { key: "latestGrade", header: "آخر درجة", width: 55 },
-  { key: "questionAccuracy", header: "الأسئلة %", width: 55 },
-  { key: "tasksCompleted", header: "المهام", width: 45 },
-  { key: "totalPoints", header: "النقاط", width: 50 },
+  { key: "fullName", header: "الاسم", width: 90 },
+  { key: "level", header: "المستوى", width: 60 },
+  { key: "notes", header: "ملاحظات", width: 75 },
+  { key: "attendanceRate", header: "الحضور %", width: 50 },
+  { key: "avgGrade", header: "متوسط الدرجات", width: 55 },
+  { key: "latestGrade", header: "آخر درجة", width: 45 },
+  { key: "questionAccuracy", header: "الأسئلة %", width: 50 },
+  { key: "tasksCompleted", header: "المهام", width: 40 },
+  { key: "totalPoints", header: "النقاط", width: 45 },
 ];
 
 export interface ExportResult {
@@ -428,9 +437,10 @@ export async function exportStudentReport(
     };
   }
 
+  const notesLine = report.student.notes ? ` · ملاحظات: ${report.student.notes}` : "";
   const buffer = await renderSimpleReportPdf({
     title: `تقرير الطالب: ${report.student.fullName}`,
-    subtitle: `المستوى: ${report.student.level ?? "—"} · مجموع النقاط: ${report.student.totalPoints} · نسبة الحضور: ${report.stats.attendanceRate ?? "—"}% · متوسط الدرجات: ${report.stats.avgGrade ?? "—"}`,
+    subtitle: `المستوى: ${report.student.level ?? "—"} · مجموع النقاط: ${report.student.totalPoints} · نسبة الحضور: ${report.stats.attendanceRate ?? "—"}% · متوسط الدرجات: ${report.stats.avgGrade ?? "—"}${notesLine}`,
     columns: [
       { key: "date", header: "التاريخ", width: 90 },
       { key: "source", header: "المصدر", width: 90 },

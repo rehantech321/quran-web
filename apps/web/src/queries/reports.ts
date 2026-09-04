@@ -15,6 +15,7 @@ export interface CircleReportRow {
   studentId: string;
   fullName: string;
   level: string | null;
+  notes: string | null;
   attendanceRate: number | null;
   avgGrade: number | null;
   latestGrade: number | null;
@@ -54,6 +55,7 @@ export interface StudentReport {
     id: string;
     fullName: string;
     level: string | null;
+    notes: string | null;
     circleId: string;
     totalPoints: number;
     pointsBreakdown: PointsBreakdown;
