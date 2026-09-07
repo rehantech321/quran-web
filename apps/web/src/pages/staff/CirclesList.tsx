@@ -18,10 +18,16 @@ import {
   SkeletonCard,
 } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
-import { useCircles, useCreateCircle } from "@/queries/circles";
+import {
+  useCircles,
+  useCreateCircle,
+  useDeleteCircle,
+  useUpdateCircle,
+} from "@/queries/circles";
 import { useCircleChampions } from "@/queries/reports";
 import { useStaff } from "@/queries/users";
 import { useAuthStore } from "@/store/authStore";
+import type { CircleWithStats } from "@/types/api";
 import { nextSessionLabel } from "@/utils/schedule";
 
 const DAY_KEYS = [0, 1, 2, 3, 4, 5, 6];
@@ -31,7 +37,31 @@ export function CirclesList() {
   const { data: circles, isLoading } = useCircles();
   const user = useAuthStore((s) => s.user);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingCircle, setEditingCircle] = useState<CircleWithStats | null>(null);
+  const [deleteError, setDeleteError] = useState<{
+    circleId: string;
+    message: string;
+  } | null>(null);
+  const deleteCircle = useDeleteCircle();
   const canManageCircles = user?.role === "admin" || user?.role === "super_admin";
+
+  async function onDeleteCircle(circle: CircleWithStats, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(t("circles.deleteConfirm"))) return;
+    setDeleteError(null);
+    try {
+      await deleteCircle.mutateAsync(circle._id);
+    } catch (err) {
+      // Deletion is refused (409) while the circle still has active students
+      // — an expected, common case (see `circles.deleteBlocked`), not a bug
+      // to hide behind a generic error.
+      setDeleteError({
+        circleId: circle._id,
+        message: getApiErrorMessage(err, t("common.error")),
+      });
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24 lg:max-w-5xl">
@@ -75,29 +105,58 @@ export function CirclesList() {
       <div className="flex flex-col gap-3">
         {circles?.map((circle) => (
           <Link key={circle._id} to={`/app/circles/${circle._id}`}>
-            <Card className="flex items-center justify-between gap-4 p-4 transition-shadow hover:shadow-lg">
-              <div className="min-w-0">
-                <h2 className="truncate font-display text-lg text-primary-900">
-                  {circle.name}
-                </h2>
-                <p className="text-sm text-ink-600">
-                  {t("circles.studentCount", { count: circle.studentCount })}
-                </p>
-                {circle.schedule.days.length > 0 && (
-                  <p className="text-xs text-ink-400">
-                    {t("circles.nextSession")}: {nextSessionLabel(circle.schedule, t)}
+            <Card className="flex flex-col gap-2 p-4 transition-shadow hover:shadow-lg">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="truncate font-display text-lg text-primary-900">
+                    {circle.name}
+                  </h2>
+                  <p className="text-sm text-ink-600">
+                    {t("circles.studentCount", { count: circle.studentCount })}
                   </p>
-                )}
+                  {circle.schedule.days.length > 0 && (
+                    <p className="text-xs text-ink-400">
+                      {t("circles.nextSession")}: {nextSessionLabel(circle.schedule, t)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col items-center gap-1">
+                  <ProgressRing
+                    value={circle.todayAttendance.recorded}
+                    max={circle.todayAttendance.total}
+                  />
+                  <span className="text-[10px] text-ink-400">
+                    {t("circles.todayAttendance")}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col items-center gap-1">
-                <ProgressRing
-                  value={circle.todayAttendance.recorded}
-                  max={circle.todayAttendance.total}
-                />
-                <span className="text-[10px] text-ink-400">
-                  {t("circles.todayAttendance")}
-                </span>
-              </div>
+              {canManageCircles && (
+                <div className="flex items-center justify-end gap-3 border-t border-cream-200 pt-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingCircle(circle);
+                    }}
+                    className="text-xs text-primary-700 hover:underline"
+                  >
+                    {t("common.edit")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => onDeleteCircle(circle, e)}
+                    className="text-xs text-danger hover:underline"
+                  >
+                    {t("common.delete")}
+                  </button>
+                </div>
+              )}
+              {deleteError?.circleId === circle._id && (
+                <p role="alert" className="text-xs text-danger">
+                  {deleteError.message}
+                </p>
+              )}
             </Card>
           </Link>
         ))}
@@ -115,6 +174,7 @@ export function CirclesList() {
       )}
 
       <CreateCircleModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <EditCircleModal circle={editingCircle} onClose={() => setEditingCircle(null)} />
     </div>
   );
 }
@@ -261,6 +321,123 @@ function CreateCircleModal({ open, onClose }: { open: boolean; onClose: () => vo
           </Button>
           <Button type="submit" disabled={createCircle.isPending}>
             {t("circles.createCircle")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function EditCircleModal({
+  circle,
+  onClose,
+}: {
+  circle: CircleWithStats | null;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const { data: staff } = useStaff();
+  const updateCircle = useUpdateCircle(circle?._id ?? "");
+  const supervisors = staff?.filter((s) => s.role === "supervisor") ?? [];
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<CreateCircleFormValues>({
+    resolver: zodResolver(createCircleSchema),
+    // react-hook-form re-syncs the form whenever this object identity
+    // changes — matches StudentForm.tsx's edit pattern, and means switching
+    // which circle is being edited (or reopening the modal) always shows
+    // that circle's current values, not stale leftovers from a previous one.
+    values: circle
+      ? {
+          name: circle.name,
+          supervisorId: circle.supervisorId,
+          schedule: circle.schedule,
+        }
+      : undefined,
+  });
+  const selectedDays = watch("schedule.days") ?? [];
+
+  function toggleDay(day: number) {
+    setValue(
+      "schedule.days",
+      selectedDays.includes(day)
+        ? selectedDays.filter((d) => d !== day)
+        : [...selectedDays, day].sort(),
+    );
+  }
+
+  async function onSubmit(values: CreateCircleFormValues) {
+    await updateCircle.mutateAsync(values);
+    onClose();
+  }
+
+  return (
+    <Modal open={Boolean(circle)} onClose={onClose} title={t("circles.editCircle")}>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Input
+          label={t("circles.name")}
+          error={errors.name?.message}
+          {...register("name")}
+        />
+        <Select
+          label={t("circles.supervisor")}
+          error={errors.supervisorId?.message}
+          {...register("supervisorId")}
+        >
+          <option value="">—</option>
+          {supervisors.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.fullName}
+            </option>
+          ))}
+        </Select>
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-ink-900">{t("circles.days")}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DAY_KEYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggleDay(day)}
+                className={`min-h-9 rounded-md border px-2.5 text-xs ${
+                  selectedDays.includes(day)
+                    ? "border-primary-900 bg-primary-900 text-cream-50"
+                    : "border-cream-200 bg-cream-50 text-ink-600"
+                }`}
+              >
+                {t(`days.${day}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label={t("circles.startTime")}
+            type="time"
+            {...register("schedule.startTime")}
+          />
+          <Input
+            label={t("circles.lateAfter")}
+            type="time"
+            {...register("schedule.lateAfter")}
+          />
+        </div>
+        {updateCircle.isError && (
+          <p role="alert" className="text-sm text-danger">
+            {getApiErrorMessage(updateCircle.error, t("common.error"))}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" disabled={updateCircle.isPending}>
+            {t("common.save")}
           </Button>
         </div>
       </form>

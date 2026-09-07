@@ -180,7 +180,8 @@
     "createQuestion": "إنشاء سؤال",
     "published": "منشور",
     "draft": "مسودة",
-    "weekOf": "أسبوع"
+    "weekOf": "أسبوع",
+    "deleteConfirm": "هل أنت متأكد من حذف هذا السؤال؟"
   },
   "tasks": {
     "title": "عنوان المهمة",

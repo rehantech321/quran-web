@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { CreateQuestionInput } from "@halaqat/shared";
+import type { CreateQuestionInput, UpdateQuestionInput } from "@halaqat/shared";
 
 import { apiClient, isConnectionProblem } from "@/lib/apiClient";
 import type { QuestionAnswer, WeeklyQuestion } from "@/types/api";
@@ -27,6 +27,30 @@ export function useCreateQuestion() {
     },
     onSuccess: (question) =>
       queryClient.invalidateQueries({ queryKey: ["questions", question.circleId] }),
+  });
+}
+
+export function useUpdateQuestion(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...input }: { id: string } & UpdateQuestionInput) => {
+      const res = await apiClient.patch<{ data: WeeklyQuestion }>(
+        `/questions/${id}`,
+        input,
+      );
+      return res.data.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["questions", circleId] }),
+  });
+}
+
+export function useDeleteQuestion(circleId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (questionId: string) => {
+      await apiClient.delete(`/questions/${questionId}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["questions", circleId] }),
   });
 }
 

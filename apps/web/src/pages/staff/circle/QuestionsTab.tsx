@@ -1,9 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Button, Card, Input, SkeletonText, StatusChip } from "@/components/ui";
+import { Button, Card, Input, Modal, SkeletonText, StatusChip } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
-import { useCreateQuestion, usePublishQuestion, useQuestions } from "@/queries/questions";
+import {
+  useCreateQuestion,
+  useDeleteQuestion,
+  usePublishQuestion,
+  useQuestions,
+  useUpdateQuestion,
+} from "@/queries/questions";
+import type { WeeklyQuestion } from "@/types/api";
 
 const OPTION_KEYS = ["A", "B", "C", "D"] as const;
 
@@ -20,6 +27,8 @@ export function QuestionsTab({ circleId }: { circleId: string }) {
   const { data: questions, isLoading } = useQuestions(circleId);
   const createQuestion = useCreateQuestion();
   const publishQuestion = usePublishQuestion(circleId);
+  const deleteQuestion = useDeleteQuestion(circleId);
+  const [editingQuestion, setEditingQuestion] = useState<WeeklyQuestion | null>(null);
 
   const [questionText, setQuestionText] = useState("");
   const [options, setOptions] = useState(["", ""]);
@@ -184,11 +193,170 @@ export function QuestionsTab({ circleId }: { circleId: string }) {
                     {t("questions.publish")}
                   </Button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setEditingQuestion(q)}
+                  className="text-xs text-primary-700 hover:underline"
+                >
+                  {t("common.edit")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(t("questions.deleteConfirm"))) {
+                      deleteQuestion.mutate(q._id);
+                    }
+                  }}
+                  className="text-xs text-danger hover:underline"
+                >
+                  {t("common.delete")}
+                </button>
               </div>
             </Card>
           ))
         )}
       </div>
+
+      <EditQuestionModal
+        question={editingQuestion}
+        circleId={circleId}
+        onClose={() => setEditingQuestion(null)}
+      />
     </div>
+  );
+}
+
+function EditQuestionModal({
+  question,
+  circleId,
+  onClose,
+}: {
+  question: WeeklyQuestion | null;
+  circleId: string;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const updateQuestion = useUpdateQuestion(circleId);
+
+  const [questionText, setQuestionText] = useState("");
+  const [options, setOptions] = useState(["", ""]);
+  const [correctIndex, setCorrectIndex] = useState(0);
+  const [points, setPoints] = useState<number | "">("");
+  const [explanation, setExplanation] = useState("");
+
+  // Re-seed the form whenever a different question is opened for editing —
+  // same pattern as the tasks edit modal (see TasksTab.tsx): simplest way to
+  // keep this plain-useState form in sync with whichever question the
+  // parent just set, without a form library's `values` API.
+  const [loadedQuestionId, setLoadedQuestionId] = useState<string | null>(null);
+  if (question && question._id !== loadedQuestionId) {
+    setLoadedQuestionId(question._id);
+    setQuestionText(question.questionText);
+    setOptions(question.options.map((o) => o.text));
+    setCorrectIndex(
+      Math.max(
+        0,
+        question.options.findIndex((o) => o.key === question.correctOptionKey),
+      ),
+    );
+    setPoints(question.points);
+    setExplanation(question.explanation ?? "");
+  }
+
+  function updateOption(i: number, value: string) {
+    setOptions((prev) => prev.map((o, idx) => (idx === i ? value : o)));
+  }
+
+  function addOption() {
+    if (options.length < 6) setOptions((prev) => [...prev, ""]);
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!question) return;
+    const filledOptions = options
+      .map((text, i) => ({ key: OPTION_KEYS[i]!, text }))
+      .filter((o) => o.text.trim().length > 0);
+    if (filledOptions.length < 2 || !questionText.trim()) return;
+
+    await updateQuestion.mutateAsync({
+      id: question._id,
+      questionText,
+      options: filledOptions,
+      correctOptionKey: OPTION_KEYS[correctIndex]!,
+      points: points === "" ? undefined : Number(points),
+      explanation: explanation || undefined,
+    });
+    onClose();
+  }
+
+  return (
+    <Modal
+      open={Boolean(question)}
+      onClose={onClose}
+      title={t("questions.weeklyQuestion")}
+    >
+      <form className="flex flex-col gap-3" onSubmit={onSubmit}>
+        <Input
+          label={t("questions.questionText")}
+          value={questionText}
+          onChange={(e) => setQuestionText(e.target.value)}
+        />
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-medium text-ink-900">{t("questions.options")}</p>
+          {options.map((opt, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="edit-correct-option"
+                checked={correctIndex === i}
+                onChange={() => setCorrectIndex(i)}
+                aria-label={t("questions.correctOption")}
+                className="h-4 w-4 accent-gold-600"
+              />
+              <Input
+                className="flex-1"
+                value={opt}
+                onChange={(e) => updateOption(i, e.target.value)}
+                placeholder={`${t("questions.options")} ${OPTION_KEYS[i]}`}
+              />
+            </div>
+          ))}
+          {options.length < 6 && (
+            <button
+              type="button"
+              onClick={addOption}
+              className="self-start text-xs text-primary-700 hover:underline"
+            >
+              + {t("questions.addOption")}
+            </button>
+          )}
+        </div>
+        <Input
+          label={`${t("questions.points")} (${t("common.optional")})`}
+          type="number"
+          value={points}
+          onChange={(e) => setPoints(e.target.value === "" ? "" : Number(e.target.value))}
+        />
+        <Input
+          label={`${t("questions.explanation")} (${t("common.optional")})`}
+          value={explanation}
+          onChange={(e) => setExplanation(e.target.value)}
+        />
+        {updateQuestion.isError && (
+          <p role="alert" className="text-sm text-danger">
+            {getApiErrorMessage(updateQuestion.error, t("common.error"))}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" disabled={updateQuestion.isPending}>
+            {t("common.save")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

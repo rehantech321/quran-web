@@ -14,6 +14,7 @@ import { validateBody, validateParams, validateQuery } from "../middleware/valid
 import {
   answerQuestion,
   createQuestion,
+  deleteQuestion,
   getActiveQuestionForStudent,
   getQuestion,
   listQuestions,
@@ -105,6 +106,18 @@ export function createQuestionsRouter() {
       res.json({ success: true, data: question });
     },
   );
+
+  router.delete("/:id", validateParams(questionIdParamSchema), async (req, res) => {
+    const existing = await getQuestion(req.user!.organizationId as never, req.params.id!);
+    await assertSupervisorOwnsCircle(
+      req.user!.organizationId,
+      req.user!.role,
+      req.user!.id,
+      existing.circleId.toString(),
+    );
+    await deleteQuestion(req.user!.organizationId as never, req.params.id!);
+    res.status(204).end();
+  });
 
   router.post("/:id/publish", validateParams(questionIdParamSchema), async (req, res) => {
     const existing = await getQuestion(req.user!.organizationId as never, req.params.id!);

@@ -180,7 +180,8 @@
     "createQuestion": "Create question",
     "published": "Published",
     "draft": "Draft",
-    "weekOf": "Week of"
+    "weekOf": "Week of",
+    "deleteConfirm": "Are you sure you want to delete this question?"
   },
   "tasks": {
     "title": "Task title",

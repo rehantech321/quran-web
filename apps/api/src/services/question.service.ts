@@ -18,6 +18,7 @@ export async function listQuestions(
 ) {
   return WeeklyQuestion.find({
     organizationId,
+    deletedAt: null,
     ...(filter.circleId ? { circleId: filter.circleId } : {}),
   }).sort({ weekOf: -1, createdAt: -1 });
 }
@@ -26,7 +27,11 @@ export async function getQuestion(
   organizationId: Types.ObjectId,
   questionId: Types.ObjectId | string,
 ) {
-  const question = await WeeklyQuestion.findOne({ _id: questionId, organizationId });
+  const question = await WeeklyQuestion.findOne({
+    _id: questionId,
+    organizationId,
+    deletedAt: null,
+  });
   if (!question) throw new NotFoundError("question");
   return question;
 }
@@ -74,6 +79,23 @@ export async function publishQuestion(
 }
 
 /**
+ * Soft-deletes the question itself — never any student's existing answers or
+ * the points those already awarded (`QuestionAnswer`/`PointsLedger` are
+ * append-only history, same principle as `deleteTask`). Hiding a question
+ * from future listings and the active-question check must never touch what
+ * already happened under it.
+ */
+export async function deleteQuestion(
+  organizationId: Types.ObjectId,
+  questionId: Types.ObjectId | string,
+) {
+  const question = await getQuestion(organizationId, questionId);
+  question.deletedAt = new Date();
+  await question.save();
+  return question;
+}
+
+/**
  * The active, unanswered, published question for a student's circle right now
  * (or null). Strips the correct answer/explanation — those only reveal once
  * `answerQuestion` has graded an attempt, so a student can't inspect the
@@ -95,6 +117,7 @@ export async function getActiveQuestionForStudent(
     organizationId,
     circleId: student.circleId,
     isPublished: true,
+    deletedAt: null,
     $and: [
       { $or: [{ opensAt: { $exists: false } }, { opensAt: { $lte: now } }] },
       { $or: [{ closesAt: { $exists: false } }, { closesAt: { $gte: now } }] },
@@ -131,6 +154,7 @@ export async function answerQuestion(params: AnswerQuestionParams) {
     _id: params.questionId,
     organizationId: params.organizationId,
     isPublished: true,
+    deletedAt: null,
   }).lean();
   if (!question) throw new NotFoundError("question");
 
