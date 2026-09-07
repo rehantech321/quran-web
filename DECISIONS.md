@@ -999,4 +999,51 @@ after a fresh page load would still have displayed stale cached data until somet
 else happened to refetch it. All four mutations now invalidate the relevant profile/
 roster queries alongside the ones they already invalidated.
 
+## Post-launch — absences never deducted points automatically
+
+Reported: presence adds 10 points on scan, but absence never deducts any. Not a bug —
+`closeSession` (which marks every still-unscanned active student absent and deducts
+points) always existed and was already correctly tested, but it only ever ran when a
+supervisor explicitly tapped "Close session" on the Attendance tab. If that tap never
+happened, unscanned students just stayed in a permanent "not recorded" limbo — no
+points either way. Confirmed with the user this should become automatic rather than
+staying a manual step.
+
+Added `jobs/autoCloseAttendance.ts`: a recurring sweep (every 30 minutes, plus once
+immediately on server startup so a restart doesn't wait a full interval) across every
+active circle in every organization, calling the exact same `closeSession` a
+supervisor's button already calls — no new points logic, just automating when it runs.
+A circle only gets closed once it (a) met "today" per its own `schedule.days`, checked
+against the _organization's_ timezone via `Intl.DateTimeFormat` (not the server
+process's own timezone, and not a raw UTC weekday — a common source of off-by-one
+errors near midnight that this deliberately avoids), and (b) is more than
+`AUTO_CLOSE_GRACE_HOURS` (3, hardcoded) past its `lateAfter` cutoff — generous on
+purpose, so a session that's simply running long, or a student arriving quite late,
+doesn't get prematurely marked absent out from under a supervisor who just hasn't
+gotten to them yet. The sweep is safe to run as often as we like: `closeSession` only
+ever touches students with no attendance record yet for the day, so re-running it
+against an already-closed circle is a no-op, not a double-charge — no separate
+"already closed" flag needed.
+
+Deliberately started from `index.ts` (the real server process), never from
+`createApp()` — the latter is what every test builds a fresh instance of, sometimes
+many per file, and none of them should be spinning up a background timer. `recordedBy`
+on an auto-closed session is the circle's own supervisor (there's no real "acting
+user" for an automated action, and every other point-awarding path already requires
+someone in that field); the record itself is indistinguishable from one a supervisor
+closed manually (`method: "manual"`, same as `closeSession` always used) — auto-close
+isn't a new kind of event, just an automated trigger for an existing one.
+
+Tested the boundary logic (`shouldAutoCloseCircle`) as a pure function against fixed
+instants — not a scheduled day, well before grace, exactly at the grace boundary
+(exclusive), just past it — without a database, plus a full `runAutoCloseSweep`
+integration pass against a real replica set confirming it actually deducts the
+configured `-10`, is idempotent across repeated sweeps, and never touches a student
+already scanned present that day. One test's fixture initially hand-derived the
+expected `sessionDate` from the UTC instant by mental arithmetic — wrong, by exactly
+the org's UTC offset — caught by computing it independently via Node before trusting
+it in the test, then fixed to call the same `normalizeSessionDate` helper production
+code uses, rather than risk the same class of error silently passing a test that
+happened to agree with its own mistake.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

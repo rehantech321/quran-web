@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { createApp } from "@/app.js";
 import { env } from "@/config/env.js";
 import { logger } from "@/config/logger.js";
+import { startAutoCloseScheduler } from "@/jobs/autoCloseAttendance.js";
 
 async function main() {
   await mongoose.connect(env.MONGODB_URI);
@@ -12,6 +13,8 @@ async function main() {
   app.listen(env.PORT, () => {
     logger.info(`API listening on port ${env.PORT}`);
   });
+
+  startAutoCloseScheduler();
 }
 
 main().catch((err) => {
