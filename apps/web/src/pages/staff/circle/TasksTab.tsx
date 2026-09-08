@@ -24,6 +24,7 @@ import {
 } from "@/queries/tasks";
 import { useStudentsByCircle } from "@/queries/students";
 import type { WeeklyTask } from "@/types/api";
+import { submissionLabelKey, submissionTone } from "@/utils/taskStatus";
 
 export function TasksTab({ circleId }: { circleId: string }) {
   const { t } = useTranslation();
@@ -223,37 +224,51 @@ export function TasksTab({ circleId }: { circleId: string }) {
         ) : (
           <div className="flex flex-col gap-2">
             {tasks?.map((task) => (
-              <Card
-                key={task._id}
-                className="flex items-center justify-between gap-2 p-3"
-              >
-                <p className="min-w-0 flex-1 truncate text-sm text-ink-900">
-                  {task.title}
-                </p>
-                <div className="flex items-center gap-2">
-                  <StatusChip
-                    tone="info"
-                    label={`${task.points} ${t("common.points")}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setEditingTask(task)}
-                    className="text-xs text-primary-700 hover:underline"
-                  >
-                    {t("common.edit")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm(t("tasks.deleteConfirm"))) {
-                        deleteTask.mutate(task._id);
-                      }
-                    }}
-                    className="text-xs text-danger hover:underline"
-                  >
-                    {t("common.delete")}
-                  </button>
+              <Card key={task._id} className="flex flex-col gap-2 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 flex-1 truncate text-sm text-ink-900">
+                    {task.title}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <StatusChip
+                      tone="info"
+                      label={`${task.points} ${t("common.points")}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditingTask(task)}
+                      className="text-xs text-primary-700 hover:underline"
+                    >
+                      {t("common.edit")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(t("tasks.deleteConfirm"))) {
+                          deleteTask.mutate(task._id);
+                        }
+                      }}
+                      className="text-xs text-danger hover:underline"
+                    >
+                      {t("common.delete")}
+                    </button>
+                  </div>
                 </div>
+                {/* Which students have actually picked this task up so far —
+                    a submission exists as soon as a student taps "start" or
+                    "complete" on their side, so this is visible well before
+                    it ever reaches the pending-approvals queue below. */}
+                {task.submissions && task.submissions.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 border-t border-cream-200 pt-2">
+                    {task.submissions.map((s) => (
+                      <StatusChip
+                        key={s.studentId}
+                        tone={submissionTone(s.status, s.approvalStatus)}
+                        label={`${s.fullName} — ${t(submissionLabelKey(s.status, s.approvalStatus))}`}
+                      />
+                    ))}
+                  </div>
+                )}
               </Card>
             ))}
           </div>

@@ -1,22 +1,81 @@
 import mongoose, { Types } from "mongoose";
 
-import type { CreateTaskInput, SubmissionStatus, UpdateTaskInput } from "@halaqat/shared";
+import type {
+  ApprovalStatus,
+  CreateTaskInput,
+  SubmissionStatus,
+  UpdateTaskInput,
+} from "@halaqat/shared";
 
 import { ConflictError, NotFoundError } from "../errors.js";
 import { Student } from "../models/Student.js";
 import { TaskSubmission } from "../models/TaskSubmission.js";
-import { WeeklyTask } from "../models/WeeklyTask.js";
+import { WeeklyTask, type WeeklyTaskFields } from "../models/WeeklyTask.js";
 import { awardPoints, reverseEntriesForSource } from "./points.service.js";
 
+export interface TaskStudentStatus {
+  studentId: Types.ObjectId;
+  fullName: string;
+  photoUrl?: string;
+  status: SubmissionStatus;
+  approvalStatus: ApprovalStatus;
+}
+
+/**
+ * Every task, each paired with which students have actually picked it up —
+ * a `TaskSubmission` only exists once a student taps "start" or "complete"
+ * on their own task list (`updateSubmissionStatus` creates it lazily), so
+ * its mere presence here already means "this student selected this task,"
+ * independent of whether it's been submitted for approval yet. Without
+ * this, a supervisor could see a task existed but never who (if anyone) was
+ * actually working on it until it showed up in the separate, narrower
+ * pending-approvals queue.
+ */
 export async function listTasks(
   organizationId: Types.ObjectId,
   filter: { circleId?: string } = {},
-) {
-  return WeeklyTask.find({
+): Promise<
+  (WeeklyTaskFields & { _id: Types.ObjectId; submissions: TaskStudentStatus[] })[]
+> {
+  const tasks = await WeeklyTask.find({
     organizationId,
     deletedAt: null,
     ...(filter.circleId ? { circleId: filter.circleId } : {}),
-  }).sort({ dueDate: -1, createdAt: -1 });
+  })
+    .sort({ dueDate: -1, createdAt: -1 })
+    .lean();
+
+  const submissions = await TaskSubmission.find({
+    organizationId,
+    taskId: { $in: tasks.map((t) => t._id) },
+  }).lean();
+  const students = await Student.find({
+    _id: { $in: submissions.map((s) => s.studentId) },
+  })
+    .select("fullName photoUrl")
+    .lean();
+  const studentById = new Map(students.map((s) => [String(s._id), s]));
+
+  const submissionsByTaskId = new Map<string, TaskStudentStatus[]>();
+  for (const submission of submissions) {
+    const student = studentById.get(String(submission.studentId));
+    if (!student) continue; // deleted/missing student — nothing useful to show
+    const key = String(submission.taskId);
+    const list = submissionsByTaskId.get(key) ?? [];
+    list.push({
+      studentId: submission.studentId,
+      fullName: student.fullName,
+      photoUrl: student.photoUrl,
+      status: submission.status,
+      approvalStatus: submission.approvalStatus,
+    });
+    submissionsByTaskId.set(key, list);
+  }
+
+  return tasks.map((task) => ({
+    ...task,
+    submissions: submissionsByTaskId.get(String(task._id)) ?? [],
+  }));
 }
 
 export async function getTask(

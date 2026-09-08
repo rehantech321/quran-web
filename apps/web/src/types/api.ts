@@ -118,6 +118,14 @@ export type TaskAssignmentType = "circle" | "students";
 export type SubmissionStatus = "not_started" | "in_progress" | "completed";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
+export interface TaskStudentStatus {
+  studentId: string;
+  fullName: string;
+  photoUrl?: string;
+  status: SubmissionStatus;
+  approvalStatus: ApprovalStatus;
+}
+
 export interface WeeklyTask {
   _id: string;
   circleId: string;
@@ -128,6 +136,8 @@ export interface WeeklyTask {
   assignedTo: TaskAssignmentType;
   studentIds?: string[];
   isPublished: boolean;
+  /** Only present on `GET /tasks` listings — which students have actually picked up (or completed) this task so far. */
+  submissions?: TaskStudentStatus[];
 }
 
 export interface TaskSubmission {

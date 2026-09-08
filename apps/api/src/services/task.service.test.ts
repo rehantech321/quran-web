@@ -11,6 +11,7 @@ import {
 } from "../test/fixtures.js";
 import {
   approveSubmission,
+  listTasks,
   rejectSubmission,
   updateSubmissionStatus,
 } from "./task.service.js";
@@ -98,5 +99,32 @@ describe("task.service", () => {
     });
     expect(reapproved.approvalStatus).toBe("approved");
     expect((await Student.findById(student._id).lean())?.totalPoints).toBe(15);
+  });
+
+  it("listTasks reports which students have picked up a task, before it's ever submitted for approval", async () => {
+    const org = await createTestOrg();
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const studentA = await createTestStudent(org._id, circle._id);
+    const studentB = await createTestStudent(org._id, circle._id);
+    const task = await createTestTask(org._id, circle._id, supervisor._id);
+
+    // Student A only started it — no approval queue entry exists for this
+    // yet, but a supervisor should still be able to see they picked it up.
+    await updateSubmissionStatus({
+      organizationId: org._id,
+      taskId: task._id,
+      studentId: studentA._id,
+      status: "in_progress",
+    });
+    // Student B never touched the task at all.
+
+    const [listed] = await listTasks(org._id, { circleId: circle._id.toString() });
+    expect(listed!.submissions).toHaveLength(1);
+    expect(listed!.submissions[0]!.fullName).toBe(studentA.fullName);
+    expect(listed!.submissions[0]!.status).toBe("in_progress");
+    expect(
+      listed!.submissions.some((s) => String(s.studentId) === String(studentB._id)),
+    ).toBe(false);
   });
 });

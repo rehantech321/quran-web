@@ -11,26 +11,7 @@ import {
   Tabs,
 } from "@/components/ui";
 import { useMyTasks, useUpdateMySubmission, type MyTasksResponse } from "@/queries/tasks";
-import type { ApprovalStatus, SubmissionStatus } from "@/types/api";
-
-function submissionTone(
-  status: SubmissionStatus,
-  approval?: ApprovalStatus,
-): "success" | "warning" | "danger" | "info" | "neutral" {
-  if (approval === "approved") return "success";
-  if (approval === "rejected") return "danger";
-  if (status === "completed") return "info";
-  if (status === "in_progress") return "warning";
-  return "neutral";
-}
-
-function submissionLabelKey(status: SubmissionStatus, approval?: ApprovalStatus): string {
-  if (approval === "approved") return "tasks.approved";
-  if (approval === "rejected") return "tasks.rejected";
-  if (status === "completed") return "tasks.completedPending";
-  if (status === "in_progress") return "tasks.inProgress";
-  return "tasks.notStarted";
-}
+import { submissionLabelKey, submissionTone } from "@/utils/taskStatus";
 
 function TaskCard({ item }: { item: MyTasksResponse["active"][number] }) {
   const { t } = useTranslation();
