@@ -55,6 +55,7 @@ export function useDeleteTask(circleId: string) {
 export interface PendingApproval {
   submission: TaskSubmission;
   task: WeeklyTask;
+  student?: { _id: string; fullName: string; photoUrl?: string };
 }
 
 export function usePendingApprovals(circleId?: string) {

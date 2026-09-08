@@ -132,9 +132,21 @@ export async function getPendingApprovals(
     .sort({ completedAt: 1 })
     .lean();
 
+  // The queue exists so a supervisor can go ask a specific student about
+  // their submission before approving — without the student's own name
+  // attached, the list is just a pile of task titles with no way to tell
+  // who to ask.
+  const students = await Student.find({
+    _id: { $in: submissions.map((s) => s.studentId) },
+  })
+    .select("fullName photoUrl")
+    .lean();
+  const studentById = new Map(students.map((s) => [String(s._id), s]));
+
   return submissions.map((submission) => ({
     submission,
     task: taskById.get(String(submission.taskId)),
+    student: studentById.get(String(submission.studentId)),
   }));
 }
 

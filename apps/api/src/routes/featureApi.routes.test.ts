@@ -142,6 +142,10 @@ describe("feature API routes", () => {
       .set("Authorization", staffAuthHeader(supervisorA));
     expect(asSupervisorA.body.data).toHaveLength(1);
     expect(asSupervisorA.body.data[0].task._id).toBe(taskA._id.toString());
+    // The supervisor needs to know which student to ask about a submission
+    // before approving it — the queue must carry the student's name, not
+    // just the task.
+    expect(asSupervisorA.body.data[0].student.fullName).toBe(studentA.fullName);
 
     const asAdmin = await request(app)
       .get("/api/v1/tasks/pending-approvals")

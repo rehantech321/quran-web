@@ -151,13 +151,18 @@ export function TasksTab({ circleId }: { circleId: string }) {
           <p className="text-sm text-ink-600">{t("tasks.noPendingApprovals")}</p>
         )}
         <div className="flex flex-col gap-2">
-          {approvals?.map(({ submission, task }) => (
+          {approvals?.map(({ submission, task, student }) => (
             <Card
               key={submission._id}
               className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
                 <p className="text-sm font-medium text-ink-900">{task.title}</p>
+                {student && (
+                  <p className="text-xs font-medium text-primary-700">
+                    {student.fullName}
+                  </p>
+                )}
                 {submission.studentNote && (
                   <p className="text-xs text-ink-600">{submission.studentNote}</p>
                 )}
