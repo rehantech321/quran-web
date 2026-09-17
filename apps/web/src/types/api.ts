@@ -71,6 +71,7 @@ export interface AttendanceRosterEntry {
   studentId: string;
   fullName: string;
   photoUrl?: string;
+  parentPhone: string;
   status: AttendanceStatus | "not_recorded";
   checkInAt?: string;
   pointsAwarded?: number;

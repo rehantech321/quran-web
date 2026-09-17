@@ -10,3 +10,4 @@ export * from "./Skeleton";
 export * from "./StatusChip";
 export * from "./Tabs";
 export * from "./Toast";
+export * from "./WhatsAppButton";

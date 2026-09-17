@@ -353,6 +353,7 @@ export interface AttendanceRosterEntry {
   studentId: Types.ObjectId;
   fullName: string;
   photoUrl?: string;
+  parentPhone: string;
   status: AttendanceStatus | "not_recorded";
   checkInAt?: Date;
   pointsAwarded?: number;
@@ -390,6 +391,7 @@ export async function getAttendanceRoster(
       studentId: student._id,
       fullName: student.fullName,
       photoUrl: student.photoUrl,
+      parentPhone: student.parentPhone,
       status: record?.status ?? "not_recorded",
       checkInAt: record?.checkInAt,
       pointsAwarded: record?.pointsAwarded,

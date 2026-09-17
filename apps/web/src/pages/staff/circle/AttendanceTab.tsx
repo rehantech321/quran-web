@@ -3,7 +3,14 @@ import { useTranslation } from "react-i18next";
 
 import type { AttendanceStatus } from "@halaqat/shared";
 
-import { Button, Card, Modal, SkeletonText, StatusChip } from "@/components/ui";
+import {
+  Button,
+  Card,
+  Modal,
+  SkeletonText,
+  StatusChip,
+  WhatsAppButton,
+} from "@/components/ui";
 import {
   useAttendanceRoster,
   useCloseSession,
@@ -84,6 +91,7 @@ export function AttendanceTab({ circleId }: { circleId: string }) {
                   label={t(`attendance.${entry.status}`)}
                 />
               )}
+              <WhatsAppButton phone={entry.parentPhone} />
             </div>
             <div className="flex gap-1" role="group" aria-label={entry.fullName}>
               {STATUSES.map((status) => (

@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
-import { Card, EmptyState, SkeletonText, StatusChip } from "@/components/ui";
+import {
+  Card,
+  EmptyState,
+  SkeletonText,
+  StatusChip,
+  WhatsAppButton,
+} from "@/components/ui";
 import { useStudentsByCircle } from "@/queries/students";
 import { downloadStudentBarcodes } from "@/utils/downloadStudentBarcodes";
 
@@ -94,6 +100,7 @@ export function StudentsTab({ circleId }: { circleId: string }) {
                 <span className="whitespace-nowrap font-display text-sm text-primary-900">
                   {student.totalPoints} {t("common.points")}
                 </span>
+                <WhatsAppButton phone={student.parentPhone} />
               </div>
             </Card>
           </Link>
