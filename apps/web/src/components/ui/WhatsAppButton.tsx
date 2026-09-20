@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
 import { cn } from "@/utils/cn";
@@ -10,32 +11,48 @@ import { cn } from "@/utils/cn";
  * profile. Opens WhatsApp with an empty compose box; the supervisor still
  * types and sends themselves, same as every other WhatsApp integration in
  * this app.
+ *
+ * Always rendered, for every student. If the parent's number is missing or
+ * too short to be a real WhatsApp number, the button turns grey instead of
+ * disappearing — hiding it made those students look like they'd simply been
+ * skipped, when the actual problem is a bad number the supervisor needs to
+ * know about. Tapping the grey button takes them to that student's profile
+ * to fix it (pass `studentId` for that).
  */
 export function WhatsAppButton({
   phone,
+  studentId,
   className,
 }: {
   phone: string | undefined;
+  studentId?: string;
   className?: string;
 }) {
   const { t } = useTranslation();
-  if (!phone || !isLikelyValidWhatsAppPhone(phone)) return null;
+  const navigate = useNavigate();
+  const isUsable = Boolean(phone) && isLikelyValidWhatsAppPhone(phone!);
+  const label = isUsable ? t("whatsapp.sendMessage") : t("whatsapp.missingPhone");
 
   return (
     <button
       type="button"
       onClick={(e) => {
         // Most call sites nest this inside a card-level <Link> to the
-        // student's profile — without stopping propagation, tapping the
-        // button would also navigate away right as WhatsApp opens.
+        // student's profile — stop that link from also firing, and do
+        // exactly one thing ourselves.
         e.preventDefault();
         e.stopPropagation();
-        openWhatsAppChat(phone, "");
+        if (isUsable) {
+          openWhatsAppChat(phone!, "");
+        } else if (studentId) {
+          navigate(`/app/students/${studentId}`);
+        }
       }}
-      aria-label={t("whatsapp.sendMessage")}
-      title={t("whatsapp.sendMessage")}
+      aria-label={label}
+      title={label}
       className={cn(
-        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white shadow-sm transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
+        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-sm transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500",
+        isUsable ? "bg-[#25D366] text-white" : "bg-cream-200 text-ink-400",
         className,
       )}
     >

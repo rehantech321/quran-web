@@ -123,6 +123,7 @@
     "customMessageLabel": "رسالة مخصصة",
     "customMessagePlaceholder": "اكتب رسالة لولي الأمر...",
     "sendMessage": "إرسال عبر واتساب",
+    "missingPhone": "رقم ولي الأمر ناقص أو غير صحيح — اضغط لتعديله",
     "reportPeriod": "فترة التقرير",
     "periodDaily": "يومي",
     "periodWeekly": "أسبوعي",

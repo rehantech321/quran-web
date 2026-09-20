@@ -91,7 +91,7 @@ export function AttendanceTab({ circleId }: { circleId: string }) {
                   label={t(`attendance.${entry.status}`)}
                 />
               )}
-              <WhatsAppButton phone={entry.parentPhone} />
+              <WhatsAppButton phone={entry.parentPhone} studentId={entry.studentId} />
             </div>
             <div className="flex gap-1" role="group" aria-label={entry.fullName}>
               {STATUSES.map((status) => (

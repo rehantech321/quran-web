@@ -123,6 +123,7 @@
     "customMessageLabel": "Custom message",
     "customMessagePlaceholder": "Write a message for the parent/guardian...",
     "sendMessage": "Send via WhatsApp",
+    "missingPhone": "Parent phone is missing or incomplete — tap to fix it",
     "reportPeriod": "Report period",
     "periodDaily": "Daily",
     "periodWeekly": "Weekly",

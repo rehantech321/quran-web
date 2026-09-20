@@ -100,7 +100,7 @@ export function StudentsTab({ circleId }: { circleId: string }) {
                 <span className="whitespace-nowrap font-display text-sm text-primary-900">
                   {student.totalPoints} {t("common.points")}
                 </span>
-                <WhatsAppButton phone={student.parentPhone} />
+                <WhatsAppButton phone={student.parentPhone} studentId={student._id} />
               </div>
             </Card>
           </Link>
