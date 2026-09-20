@@ -128,8 +128,8 @@ export interface CircleChampion {
   } | null;
 }
 
-/** "Champions of the Circles" — the top scorer in each circle, for the Circles-list home widget. */
-export function useCircleChampions(period: LeaderboardPeriod = "week") {
+/** "Champions of the Circles" — the highest total-points student in each circle, for the Circles-list home widget. */
+export function useCircleChampions(period: LeaderboardPeriod = "all") {
   return useQuery({
     queryKey: ["reports", "champions", period],
     queryFn: async () => {

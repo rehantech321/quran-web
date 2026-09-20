@@ -179,10 +179,10 @@ export function CirclesList() {
   );
 }
 
-/** "Champions of the Circles" — this week's top student per circle, front and center on the staff home screen. */
+/** "Champions of the Circles" — the highest-scoring student in each circle, front and center on the staff home screen. */
 function ChampionsWidget() {
   const { t } = useTranslation();
-  const { data: champions, isLoading } = useCircleChampions("week");
+  const { data: champions, isLoading } = useCircleChampions();
   const withChampion = champions?.filter((c) => c.champion) ?? [];
 
   if (isLoading || withChampion.length === 0) return null;

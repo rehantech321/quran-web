@@ -1046,4 +1046,38 @@ it in the test, then fixed to call the same `normalizeSessionDate` helper produc
 code uses, rather than risk the same class of error silently passing a test that
 happened to agree with its own mistake.
 
+## Post-launch — "Champions of the Circles" crowned lower scorers over higher ones
+
+Reported: the champion of a circle was sometimes a student with fewer points than another
+student in the same circle (e.g. someone at 110 not shown, someone lower shown). Reproduced
+with failing tests before changing anything; four separate defects in the same ranking code:
+
+1. **Wrong measure (the reported symptom).** The widget asked for `period=week`, which ranks
+   by points _earned in the last 7 days_, while every other screen (profile, roster, Reports)
+   shows _total_ points. A student with 110 total, earned over previous weeks, lost to a
+   student with 20 who happened to have a busy week. My earlier "this week's champion"
+   reading was an interpretation I added — the original request was only "top student per
+   circle" — so the widget, `getCircleChampions`, the API schema default and the subtitle
+   (both languages) now all default to total points. `period` is still accepted if a
+   weekly view is ever wanted again.
+2. **Ranking trusted the `Student.totalPoints` cache.** The all-time branch sorted by that
+   cache, which is only as right as the last recompute (it was left wrong in production
+   after the aggregation-cast bug above). Every period now sums the `PointsLedger` — the
+   source of truth — and "all" is just a window starting at epoch.
+3. **A 0-point student could be crowned.** A circle with students but no points activity
+   returned its first student as champion, contradicting the documented "no activity →
+   `champion: null`". A champion now requires more than 0 points.
+4. **No tie-break.** Equal scores came out in database order. Ties now resolve by name
+   (Arabic collation), then id, so the same data always gives the same champion.
+
+Existing screens that display the _cached_ total (roster, circle report) are unchanged and
+will agree with the champion once the cache is rebuilt — `pnpm --filter @halaqat/api
+recompute-points` on the server, which is safe to run any time.
+
+Also fixed an intermittent test while here: `attendance.service.test.ts` ordered ledger rows
+by `occurredAt` alone, but the reversal row and the replacement row are written in one
+transaction and can share a millisecond, leaving their order undefined. Added `_id` as the
+tiebreaker. I had been dismissing this as "known flaky" for several rounds; it was a real
+(test-only) nondeterminism with a one-line cause.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

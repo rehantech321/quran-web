@@ -208,8 +208,13 @@ describe("attendance.service", () => {
 
     // History is append-only: the original entry stays, marked reversed, plus a
     // reversal entry and the new entry — never a mutation of the original row.
+    // `_id` breaks the tie when the reversal and the fresh entry (written in
+    // the same transaction, milliseconds apart) share an `occurredAt` —
+    // without it their relative order was undefined and this failed
+    // intermittently under load.
     const entries = await PointsLedger.find({ studentId: student._id }).sort({
       occurredAt: 1,
+      _id: 1,
     });
     expect(entries).toHaveLength(3);
     expect(entries[0]!.points).toBe(10);

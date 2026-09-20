@@ -274,21 +274,11 @@ export async function getLeaderboard(
   };
   if (filter.circleId) studentFilter.circleId = filter.circleId;
 
-  if (filter.period === "all") {
-    const students = await Student.find(studentFilter)
-      .sort({ totalPoints: -1 })
-      .limit(LEADERBOARD_LIMIT)
-      .lean();
-    return students.map((s, i) => ({
-      rank: i + 1,
-      studentId: s._id,
-      fullName: s.fullName,
-      photoUrl: s.photoUrl,
-      circleId: s.circleId,
-      points: s.totalPoints,
-    }));
-  }
-
+  // Every period — including "all" — sums the PointsLedger, the source of
+  // truth (SPEC.md §5), rather than trusting `Student.totalPoints`. That
+  // cache is only as good as the last recompute: it was left wrong for
+  // students in production, and ranking by it made someone with 110 points
+  // lose to someone with 100. "all" is just a window that starts at epoch.
   const students = await Student.find(studentFilter).lean();
   const since = periodStartDate(filter.period);
   const sums = await PointsLedger.aggregate<{ _id: Types.ObjectId; total: number }>([
@@ -302,17 +292,27 @@ export async function getLeaderboard(
   ]);
   const totalByStudentId = new Map(sums.map((s) => [String(s._id), s.total]));
 
-  return students
-    .map((s) => ({
-      studentId: s._id,
-      fullName: s.fullName,
-      photoUrl: s.photoUrl,
-      circleId: s.circleId,
-      points: totalByStudentId.get(String(s._id)) ?? 0,
-    }))
-    .sort((a, b) => b.points - a.points)
-    .slice(0, LEADERBOARD_LIMIT)
-    .map((entry, i) => ({ rank: i + 1, ...entry }));
+  return (
+    students
+      .map((s) => ({
+        studentId: s._id,
+        fullName: s.fullName,
+        photoUrl: s.photoUrl,
+        circleId: s.circleId,
+        points: totalByStudentId.get(String(s._id)) ?? 0,
+      }))
+      // Highest points first. Ties fall back to name, then id, so the same
+      // data always produces the same order — without this, equal scores
+      // came out in whatever order the database happened to return them.
+      .sort(
+        (a, b) =>
+          b.points - a.points ||
+          a.fullName.localeCompare(b.fullName, "ar") ||
+          String(a.studentId).localeCompare(String(b.studentId)),
+      )
+      .slice(0, LEADERBOARD_LIMIT)
+      .map((entry, i) => ({ rank: i + 1, ...entry }))
+  );
 }
 
 export interface CircleChampion {
@@ -322,14 +322,22 @@ export interface CircleChampion {
 }
 
 /**
- * "Champions of the Circles" — the top-scoring student in each of the org's
- * circles for `period`, for the home-screen highlight widget. A circle with
- * no points activity yet (or no students) gets `champion: null` rather than
- * being omitted, so the widget can still show its name with an empty state.
+ * "Champions of the Circles" — the highest-scoring student in each of the
+ * org's circles, for the home-screen highlight widget. Defaults to total
+ * (all-time) points: that's the number shown on every student's profile and
+ * roster, so the champion must be the student with the highest of *those*.
+ * (It used to default to "points earned in the last 7 days", which crowned
+ * someone with 20 points over someone with 110 whenever the 110 had been
+ * earned earlier.)
+ *
+ * A circle where nobody has any points (or that has no students) gets
+ * `champion: null` rather than being omitted, so the widget can still show
+ * its name with an empty state — a student with 0 or negative points is
+ * never crowned just for being first in the list.
  */
 export async function getCircleChampions(
   organizationId: string,
-  period: LeaderboardPeriod = "week",
+  period: LeaderboardPeriod = "all",
 ): Promise<CircleChampion[]> {
   const circles = await listCircles(organizationId);
   return Promise.all(
@@ -341,7 +349,7 @@ export async function getCircleChampions(
       return {
         circleId: circle._id,
         circleName: circle.name,
-        champion: top ?? null,
+        champion: top && top.points > 0 ? top : null,
       };
     }),
   );

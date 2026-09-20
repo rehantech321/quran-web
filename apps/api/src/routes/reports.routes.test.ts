@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { Types } from "mongoose";
 import request from "supertest";
 import {
   afterAll,
@@ -13,6 +14,7 @@ import {
 
 import { createApp } from "../app.js";
 import { PointsLedger } from "../models/PointsLedger.js";
+import { Student } from "../models/Student.js";
 import { signAccessToken } from "../services/auth.service.js";
 import { recordManualAttendance } from "../services/attendance.service.js";
 import { recordGrade } from "../services/grade.service.js";
@@ -216,6 +218,111 @@ describe("reports routes", () => {
       (c: { circleId: string }) => c.circleId === emptyCircle._id.toString(),
     );
     expect(withoutChampion.champion).toBeNull();
+  });
+
+  describe("champions ranking", () => {
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+
+    async function addLedgerPoints(
+      org: { _id: unknown },
+      circle: { _id: unknown },
+      student: { _id: unknown },
+      points: number,
+      occurredAt: Date,
+    ) {
+      await PointsLedger.create({
+        organizationId: org._id,
+        circleId: circle._id,
+        studentId: student._id,
+        source: "manual",
+        sourceRefId: new Types.ObjectId(),
+        points,
+        reason: "test",
+        occurredAt,
+      });
+    }
+
+    async function getChampion(
+      admin: Parameters<typeof authHeader>[0],
+      circleId: unknown,
+      query = "",
+    ) {
+      const res = await request(app)
+        .get(`/api/v1/reports/champions${query}`)
+        .set("Authorization", authHeader(admin));
+      expect(res.status).toBe(200);
+      return res.body.data.find(
+        (c: { circleId: string }) => c.circleId === String(circleId),
+      ).champion as { studentId: string; points: number } | null;
+    }
+
+    it("ranks by total points, not only what was earned in the last 7 days", async () => {
+      const org = await createTestOrg();
+      const admin = await createTestAdmin(org._id);
+      const supervisor = await createTestSupervisor(org._id);
+      const circle = await createTestCircle(org._id, supervisor._id);
+      const veteran = await createTestStudent(org._id, circle._id);
+      const busyThisWeek = await createTestStudent(org._id, circle._id);
+
+      // 110 total, all of it earned weeks ago.
+      await addLedgerPoints(org, circle, veteran, 60, daysAgo(30));
+      await addLedgerPoints(org, circle, veteran, 50, daysAgo(20));
+      // Only 20 total, but earned today.
+      await addLedgerPoints(org, circle, busyThisWeek, 20, new Date());
+
+      const champion = await getChampion(admin, circle._id);
+      expect(champion?.studentId).toBe(veteran._id.toString());
+      expect(champion?.points).toBe(110);
+    });
+
+    it("ranks from the ledger, not from a stale cached Student.totalPoints", async () => {
+      const org = await createTestOrg();
+      const admin = await createTestAdmin(org._id);
+      const supervisor = await createTestSupervisor(org._id);
+      const circle = await createTestCircle(org._id, supervisor._id);
+      const realLeader = await createTestStudent(org._id, circle._id);
+      const other = await createTestStudent(org._id, circle._id);
+
+      await addLedgerPoints(org, circle, realLeader, 110, daysAgo(3));
+      await addLedgerPoints(org, circle, other, 20, daysAgo(1));
+      // The cached rollup is wrong for the real leader (as it was in
+      // production before recompute-points was run).
+      await Student.updateOne({ _id: realLeader._id }, { totalPoints: 0 });
+      await Student.updateOne({ _id: other._id }, { totalPoints: 20 });
+
+      const champion = await getChampion(admin, circle._id, "?period=all");
+      expect(champion?.studentId).toBe(realLeader._id.toString());
+      expect(champion?.points).toBe(110);
+    });
+
+    it("never crowns a student with no points — a circle with students but no points has no champion", async () => {
+      const org = await createTestOrg();
+      const admin = await createTestAdmin(org._id);
+      const supervisor = await createTestSupervisor(org._id);
+      const circle = await createTestCircle(org._id, supervisor._id);
+      await createTestStudent(org._id, circle._id);
+      await createTestStudent(org._id, circle._id);
+
+      expect(await getChampion(admin, circle._id)).toBeNull();
+    });
+
+    it("breaks ties deterministically by name, not by database order", async () => {
+      const org = await createTestOrg();
+      const admin = await createTestAdmin(org._id);
+      const supervisor = await createTestSupervisor(org._id);
+      const circle = await createTestCircle(org._id, supervisor._id);
+      // Created in the "wrong" order on purpose.
+      const bilal = await createTestStudent(org._id, circle._id);
+      const ahmad = await createTestStudent(org._id, circle._id);
+      await Student.updateOne({ _id: bilal._id }, { fullName: "بلال" });
+      await Student.updateOne({ _id: ahmad._id }, { fullName: "أحمد" });
+
+      await addLedgerPoints(org, circle, bilal, 50, daysAgo(2));
+      await addLedgerPoints(org, circle, ahmad, 50, daysAgo(2));
+
+      const champion = await getChampion(admin, circle._id);
+      expect(champion?.studentId).toBe(ahmad._id.toString());
+    });
   });
 
   it("exports a circle report as CSV with the expected header row", async () => {
