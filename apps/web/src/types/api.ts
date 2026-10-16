@@ -88,6 +88,22 @@ export interface CircleGrade {
   notes?: string;
 }
 
+export interface AyahRange {
+  surahNumber: number;
+  surahName: string;
+  fromAyah: number;
+  toAyah: number;
+}
+
+export interface MemorizationLogEntry {
+  _id: string;
+  circleId: string;
+  studentId: string;
+  date: string;
+  newMemorization?: AyahRange;
+  revision?: AyahRange;
+}
+
 export interface QuestionOption {
   key: string;
   text: string;

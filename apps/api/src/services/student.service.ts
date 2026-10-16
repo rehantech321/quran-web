@@ -22,6 +22,55 @@ async function assertCircleInOrg(organizationId: string, circleId: string) {
     throw new ValidationError("circleId must reference a circle in this organization");
 }
 
+/** Escapes regex metacharacters so a search term is matched literally, never interpreted as a pattern. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+const SEARCH_RESULT_LIMIT = 20;
+
+/**
+ * Cross-circle name search for the admin "find any student" box — a
+ * supervisor gets the same search, just pre-scoped to `circleIds` (their own
+ * circles only; see reports.routes.ts's leaderboard/champions fix for the
+ * same scoping rule). Case-insensitive substring match, not a prefix match —
+ * a parent's own spelling of a name rarely matches the start exactly.
+ */
+export async function searchStudents(
+  organizationId: string,
+  query: string,
+  filter: { circleIds?: string[] } = {},
+) {
+  const students = await Student.find({
+    organizationId,
+    deletedAt: null,
+    fullName: { $regex: escapeRegExp(query.trim()), $options: "i" },
+    ...(filter.circleIds ? { circleId: { $in: filter.circleIds } } : {}),
+  })
+    .sort({ fullName: 1 })
+    .limit(SEARCH_RESULT_LIMIT)
+    .lean();
+  if (students.length === 0) return [];
+
+  const circles = await Circle.find({
+    _id: { $in: students.map((s) => s.circleId) },
+  })
+    .select("name")
+    .lean();
+  const circleNameById = new Map(circles.map((c) => [String(c._id), c.name]));
+
+  return students.map((s) => ({
+    _id: s._id,
+    fullName: s.fullName,
+    photoUrl: s.photoUrl,
+    level: s.level,
+    totalPoints: s.totalPoints,
+    isActive: s.isActive,
+    circleId: s.circleId,
+    circleName: circleNameById.get(String(s.circleId)) ?? null,
+  }));
+}
+
 export async function listStudentsByCircle(organizationId: string, circleId: string) {
   await assertCircleInOrg(organizationId, circleId);
   return Student.find({ organizationId, circleId, deletedAt: null }).sort({

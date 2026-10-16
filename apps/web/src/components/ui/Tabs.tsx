@@ -55,7 +55,17 @@ export function TabList({
   className?: string;
 }) {
   return (
-    <div role="tablist" className={cn("flex gap-1 border-b border-cream-200", className)}>
+    // overflow-x-auto + whitespace-nowrap so tabs scroll horizontally
+    // instead of wrapping/clipping once there are enough of them to not
+    // fit a narrow phone screen (first became a real concern once a 7th
+    // circle-detail tab was added).
+    <div
+      role="tablist"
+      className={cn(
+        "flex gap-1 overflow-x-auto whitespace-nowrap border-b border-cream-200",
+        className,
+      )}
+    >
       {children}
     </div>
   );

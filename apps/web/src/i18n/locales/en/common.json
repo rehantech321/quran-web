@@ -52,6 +52,7 @@
     "students": "Students",
     "attendance": "Attendance",
     "grades": "Grades",
+    "memorization": "Memorization",
     "questions": "Questions",
     "tasks": "Tasks",
     "approvals": "Approvals",
@@ -92,6 +93,7 @@
   },
   "student": {
     "fullName": "Full name",
+    "searchPlaceholder": "Search for a student by name, across all circles…",
     "parentPhone": "Parent phone",
     "studentPhone": "Student phone",
     "level": "Level",
@@ -116,7 +118,11 @@
     "adjustPoints": "Adjust points",
     "pointsAmount": "Points",
     "pointsAmountHint": "Positive to add, negative to deduct",
-    "pointsReason": "Reason"
+    "pointsReason": "Reason",
+    "weeklyMemorizationIcon": "Weekly memorization points",
+    "weeklyMemorizationTitle": "Weekly memorization points — {{name}}",
+    "weeklyMemorizationReason": "Memorized {{pages}} pages this week",
+    "pagesCount_other": "{{count}} pages"
   },
   "whatsapp": {
     "title": "Contact parent/guardian on WhatsApp",
@@ -139,6 +145,29 @@
     "tasksApproved": "Tasks completed",
     "pointsEarned": "Points earned this period",
     "reportFooter": "From {{orgName}}"
+  },
+  "parentReport": {
+    "title": "Weekly report for parents",
+    "sendReport": "Send weekly report to parent",
+    "preparingReport": "Preparing report...",
+    "viewReport": "View report",
+    "hideReport": "Hide report",
+    "greeting": "Assalamu alaikum, here is {{name}}'s weekly report",
+    "periodLine": "{{from}} – {{to}}",
+    "newMemorizationHeading": "New memorization",
+    "revisionHeading": "Revision",
+    "noNewMemorization": "No new memorization recorded this week",
+    "noRevision": "No revision recorded this week",
+    "ayahRangeLine": "{{surah}}, ayah {{from}}–{{to}}",
+    "attendanceHeading": "Attendance",
+    "daysPresent": "Days attended",
+    "daysAbsent": "Days absent",
+    "pointsHeading": "Points & ranking",
+    "totalPoints": "Total points",
+    "rankInCircle": "Rank in the circle",
+    "rankValue": "{{rank}} of {{total}}",
+    "footer": "From {{orgName}}",
+    "reportFetchError": "Couldn't prepare the report, try again"
   },
   "attendance": {
     "present": "Present",
@@ -167,6 +196,14 @@
     "selectStudent": "Select student",
     "selectStudentHint": "Only shows students in this circle",
     "entryCount": "{{count}} grades"
+  },
+  "memorization": {
+    "addEntry": "Add daily record",
+    "surah": "Surah",
+    "fromAyah": "From ayah",
+    "toAyah": "To ayah",
+    "newMemorization": "New memorization",
+    "revision": "Revision"
   },
   "questions": {
     "questionText": "Question text",

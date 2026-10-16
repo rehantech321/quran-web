@@ -67,11 +67,12 @@ export async function createTestCircle(
 export async function createTestStudent(
   organizationId: Types.ObjectId,
   circleId: Types.ObjectId,
+  overrides: Partial<{ fullName: string }> = {},
 ) {
   return Student.create({
     organizationId,
     circleId,
-    fullName: "طالب الاختبار",
+    fullName: overrides.fullName ?? "طالب الاختبار",
     parentPhone: "+966500000000",
   });
 }

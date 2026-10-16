@@ -4,6 +4,7 @@ import type { LeaderboardPeriod } from "@halaqat/shared";
 
 import { AttendanceRecord } from "../models/AttendanceRecord.js";
 import { CircleGrade } from "../models/CircleGrade.js";
+import { MemorizationLog } from "../models/MemorizationLog.js";
 import { PointsLedger } from "../models/PointsLedger.js";
 import { QuestionAnswer } from "../models/QuestionAnswer.js";
 import { Student } from "../models/Student.js";
@@ -265,14 +266,19 @@ const LEADERBOARD_LIMIT = 100;
 
 export async function getLeaderboard(
   organizationId: string,
-  filter: { circleId?: string; period: LeaderboardPeriod },
+  filter: { circleId?: string; circleIds?: string[]; period: LeaderboardPeriod },
 ): Promise<LeaderboardEntry[]> {
   const studentFilter: Record<string, unknown> = {
     organizationId,
     isActive: true,
     deletedAt: null,
   };
+  // `circleIds` is how a supervisor's own-circles scope reaches here (see
+  // reports.routes.ts) when no single `circleId` was requested — without
+  // either one this would return every student in the organization, not
+  // just the caller's own circle(s).
   if (filter.circleId) studentFilter.circleId = filter.circleId;
+  else if (filter.circleIds) studentFilter.circleId = { $in: filter.circleIds };
 
   // Every period — including "all" — sums the PointsLedger, the source of
   // truth (SPEC.md §5), rather than trusting `Student.totalPoints`. That
@@ -322,8 +328,11 @@ export interface CircleChampion {
 }
 
 /**
- * "Champions of the Circles" — the highest-scoring student in each of the
- * org's circles, for the home-screen highlight widget. Defaults to total
+ * "Champions of the Circles" — the highest-scoring student in each circle
+ * the caller can see (every circle in the org for admin/super_admin; only
+ * their own circle(s) for a supervisor, via `supervisorId` — previously
+ * unscoped, so every supervisor saw every other circle's name and top
+ * student on their own home screen). Defaults to total
  * (all-time) points: that's the number shown on every student's profile and
  * roster, so the champion must be the student with the highest of *those*.
  * (It used to default to "points earned in the last 7 days", which crowned
@@ -338,8 +347,9 @@ export interface CircleChampion {
 export async function getCircleChampions(
   organizationId: string,
   period: LeaderboardPeriod = "all",
+  supervisorId?: string,
 ): Promise<CircleChampion[]> {
-  const circles = await listCircles(organizationId);
+  const circles = await listCircles(organizationId, { supervisorId });
   return Promise.all(
     circles.map(async (circle) => {
       const [top] = await getLeaderboard(organizationId, {
@@ -353,6 +363,96 @@ export async function getCircleChampions(
       };
     }),
   );
+}
+
+export interface ParentWeeklyReportAyahEntry {
+  date: Date;
+  surahNumber: number;
+  surahName: string;
+  fromAyah: number;
+  toAyah: number;
+}
+
+export interface ParentWeeklyReport {
+  student: {
+    id: Types.ObjectId;
+    fullName: string;
+    circleId: Types.ObjectId;
+    circleName: string;
+    totalPoints: number;
+  };
+  range: { from: Date; to: Date };
+  rank: { rank: number; outOf: number } | null;
+  attendance: { present: number; late: number; absent: number; excused: number };
+  newMemorization: ParentWeeklyReportAyahEntry[];
+  revision: ParentWeeklyReportAyahEntry[];
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * The parent-facing weekly report (SPEC extension request): new
+ * memorization and revision ranges, attendance as actual day counts (never
+ * a percentage — a parent asked for this explicitly, since "80% attendance"
+ * doesn't say how many sessions that was out of), and the student's
+ * standing — total points and rank — within their own circle. Defaults to
+ * the trailing 7 days when no explicit range is given, matching the
+ * feature's name.
+ */
+export async function getParentWeeklyReport(
+  organizationId: string,
+  studentId: string,
+  range: ReportDateRange = {},
+): Promise<ParentWeeklyReport> {
+  const student = await getStudent(organizationId, studentId);
+  const circle = await getCircle(organizationId, student.circleId.toString());
+  const to = range.to ?? new Date();
+  const from = range.from ?? new Date(to.getTime() - WEEK_MS);
+
+  const [attendance, memorizationLogs, leaderboard] = await Promise.all([
+    AttendanceRecord.find({
+      organizationId,
+      studentId: student._id,
+      sessionDate: { $gte: from, $lte: to },
+    }).lean(),
+    MemorizationLog.find({
+      organizationId,
+      studentId: student._id,
+      deletedAt: null,
+      date: { $gte: from, $lte: to },
+    })
+      .sort({ date: 1 })
+      .lean(),
+    getLeaderboard(organizationId, {
+      circleId: student.circleId.toString(),
+      period: "all",
+    }),
+  ]);
+
+  const attendanceCounts = { present: 0, late: 0, absent: 0, excused: 0 };
+  for (const record of attendance) attendanceCounts[record.status] += 1;
+
+  const rankEntry = leaderboard.find((e) => String(e.studentId) === String(student._id));
+
+  const toEntries = (field: "newMemorization" | "revision") =>
+    memorizationLogs
+      .filter((log) => log[field])
+      .map((log) => ({ date: log.date, ...log[field]! }));
+
+  return {
+    student: {
+      id: student._id,
+      fullName: student.fullName,
+      circleId: student.circleId,
+      circleName: circle.name,
+      totalPoints: student.totalPoints,
+    },
+    range: { from, to },
+    rank: rankEntry ? { rank: rankEntry.rank, outOf: leaderboard.length } : null,
+    attendance: attendanceCounts,
+    newMemorization: toEntries("newMemorization"),
+    revision: toEntries("revision"),
+  };
 }
 
 const CIRCLE_REPORT_COLUMNS_CSV = [

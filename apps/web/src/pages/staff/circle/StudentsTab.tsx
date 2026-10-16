@@ -7,6 +7,7 @@ import {
   EmptyState,
   SkeletonText,
   StatusChip,
+  WeeklyMemorizationButton,
   WhatsAppButton,
 } from "@/components/ui";
 import { useStudentsByCircle } from "@/queries/students";
@@ -100,6 +101,10 @@ export function StudentsTab({ circleId }: { circleId: string }) {
                 <span className="whitespace-nowrap font-display text-sm text-primary-900">
                   {student.totalPoints} {t("common.points")}
                 </span>
+                <WeeklyMemorizationButton
+                  studentId={student._id}
+                  fullName={student.fullName}
+                />
                 <WhatsAppButton phone={student.parentPhone} studentId={student._id} />
               </div>
             </Card>

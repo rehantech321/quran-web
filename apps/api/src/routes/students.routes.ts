@@ -9,6 +9,7 @@ import {
   createManualLedgerEntrySchema,
   createStudentSchema,
   pointsHistoryQuerySchema,
+  searchStudentsQuerySchema,
   studentIdParamSchema,
   updateStudentSchema,
 } from "@halaqat/shared";
@@ -19,6 +20,7 @@ import { requireAuth, requireRole, requireStudentAuth } from "../middleware/auth
 import { STUDENT_PHOTOS_DIR, uploadStudentPhoto } from "../middleware/upload.js";
 import { validateBody, validateParams, validateQuery } from "../middleware/validate.js";
 import { getStudentReport } from "../services/report.service.js";
+import { listCircles } from "../services/circle.service.js";
 import {
   addManualPoints,
   createStudent,
@@ -29,6 +31,7 @@ import {
   getStudentPointsHistory,
   listStudentsByCircle,
   regenerateStudentSlug,
+  searchStudents,
   updateStudent,
 } from "../services/student.service.js";
 import { assertSupervisorOwnsCircle } from "./shared/assertSupervisorOwnsCircle.js";
@@ -94,6 +97,35 @@ export function createStudentsRouter() {
       );
       const student = await createStudent(req.user!.organizationId, req.body);
       res.status(201).json({ success: true, data: student });
+    },
+  );
+
+  // Registered before "/students/:id" — Express matches path segments in
+  // registration order, and a literal "/students/search" would otherwise be
+  // swallowed by the ":id" param route above it and treated as a (nonexistent)
+  // student id.
+  router.get(
+    "/students/search",
+    validateQuery(searchStudentsQuerySchema),
+    async (req, res) => {
+      const query = req.query as unknown as z.infer<typeof searchStudentsQuerySchema>;
+
+      // A supervisor's search stays inside their own circles — same scoping
+      // rule as the leaderboard/champions fix (reports.routes.ts) and the
+      // pending-approvals queue (tasks.routes.ts): "no filter given" must
+      // never mean "every circle in the organization" for a supervisor.
+      let circleIds: string[] | undefined;
+      if (req.user!.role === "supervisor") {
+        const ownCircles = await listCircles(req.user!.organizationId, {
+          supervisorId: req.user!.id,
+        });
+        circleIds = ownCircles.map((c) => c._id.toString());
+      }
+
+      const results = await searchStudents(req.user!.organizationId, query.q, {
+        circleIds,
+      });
+      res.json({ success: true, data: results });
     },
   );
 

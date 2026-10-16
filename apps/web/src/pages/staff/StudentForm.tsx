@@ -11,9 +11,14 @@ import { createStudentSchema, updateStudentSchema } from "@halaqat/shared";
 import { Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { compressImageForUpload } from "@/lib/imageCompression";
+import { buildParentWeeklyReportMessage } from "@/lib/parentReportMessage";
 import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
 import { useOrganization } from "@/queries/organizations";
-import { fetchStudentReport } from "@/queries/reports";
+import {
+  fetchParentWeeklyReport,
+  fetchStudentReport,
+  type ParentWeeklyReport,
+} from "@/queries/reports";
 import {
   useAddManualPoints,
   useCreateStudent,
@@ -152,6 +157,10 @@ export function StudentForm() {
           fullName={student.fullName}
           parentPhone={student.parentPhone}
         />
+      )}
+
+      {isEditing && studentId && student && (
+        <ParentWeeklyReportCard studentId={studentId} parentPhone={student.parentPhone} />
       )}
 
       {isEditing && (
@@ -549,5 +558,167 @@ function SendWhatsAppCard({
         )}
       </div>
     </Card>
+  );
+}
+
+/**
+ * "Weekly Report for Parents" (SPEC extension request) — new memorization
+ * and revision ranges, attendance as actual day counts (deliberately never
+ * a percentage, per that request), and the student's total points + rank
+ * within their own circle. Viewable inline in the app and sendable to the
+ * parent via WhatsApp — the two delivery paths the request asked for.
+ */
+function ParentWeeklyReportCard({
+  studentId,
+  parentPhone,
+}: {
+  studentId: string;
+  parentPhone: string;
+}) {
+  const { t, i18n } = useTranslation();
+  const { data: org } = useOrganization();
+  const [report, setReport] = useState<ParentWeeklyReport | null>(null);
+  const [showReport, setShowReport] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadReport(): Promise<ParentWeeklyReport | null> {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fresh = await fetchParentWeeklyReport(studentId);
+      setReport(fresh);
+      return fresh;
+    } catch {
+      setError(t("parentReport.reportFetchError"));
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function onToggleView() {
+    if (!showReport && !report) await loadReport();
+    setShowReport((prev) => !prev);
+  }
+
+  async function onSendWhatsApp() {
+    if (!isLikelyValidWhatsAppPhone(parentPhone)) {
+      setError(t("whatsapp.invalidPhone"));
+      return;
+    }
+    const fresh = await loadReport();
+    if (!fresh) return;
+    const message = buildParentWeeklyReportMessage(t, fresh, i18n.language, org?.name);
+    openWhatsAppChat(parentPhone, message);
+  }
+
+  return (
+    <Card className="p-4">
+      <h2 className="mb-3 text-sm font-semibold text-ink-900">
+        {t("parentReport.title")}
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={onToggleView} disabled={isLoading}>
+          {isLoading
+            ? t("parentReport.preparingReport")
+            : showReport
+              ? t("parentReport.hideReport")
+              : t("parentReport.viewReport")}
+        </Button>
+        <Button size="sm" onClick={onSendWhatsApp} disabled={isLoading}>
+          {isLoading ? t("parentReport.preparingReport") : t("parentReport.sendReport")}
+        </Button>
+      </div>
+
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-danger">
+          {error}
+        </p>
+      )}
+
+      {showReport && report && (
+        <div className="mt-4 flex flex-col gap-3 text-sm text-ink-900">
+          <p className="text-xs text-ink-600">
+            {new Date(report.range.from).toLocaleDateString(i18n.language)}
+            {" – "}
+            {new Date(report.range.to).toLocaleDateString(i18n.language)}
+          </p>
+
+          <ParentReportSection title={t("parentReport.newMemorizationHeading")}>
+            {report.newMemorization.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {report.newMemorization.map((e, i) => (
+                  <li key={i} className="text-ink-700">
+                    {e.surahName} — {t("memorization.fromAyah")} {e.fromAyah}{" "}
+                    {t("memorization.toAyah")} {e.toAyah}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-ink-500">{t("parentReport.noNewMemorization")}</p>
+            )}
+          </ParentReportSection>
+
+          <ParentReportSection title={t("parentReport.revisionHeading")}>
+            {report.revision.length > 0 ? (
+              <ul className="flex flex-col gap-1">
+                {report.revision.map((e, i) => (
+                  <li key={i} className="text-ink-700">
+                    {e.surahName} — {t("memorization.fromAyah")} {e.fromAyah}{" "}
+                    {t("memorization.toAyah")} {e.toAyah}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-ink-500">{t("parentReport.noRevision")}</p>
+            )}
+          </ParentReportSection>
+
+          <ParentReportSection title={t("parentReport.attendanceHeading")}>
+            {/* A late arrival still attended — merge it into "present" the
+                same way `attendanceRate` does elsewhere, so a student who
+                was late every day doesn't read as "never attended". */}
+            <p className="text-ink-700">
+              {t("parentReport.daysPresent")}:{" "}
+              {report.attendance.present + report.attendance.late}
+            </p>
+            <p className="text-ink-700">
+              {t("parentReport.daysAbsent")}: {report.attendance.absent}
+            </p>
+          </ParentReportSection>
+
+          <ParentReportSection title={t("parentReport.pointsHeading")}>
+            <p className="text-ink-700">
+              {t("parentReport.totalPoints")}: {report.student.totalPoints}
+            </p>
+            {report.rank && (
+              <p className="text-ink-700">
+                {t("parentReport.rankInCircle")}:{" "}
+                {t("parentReport.rankValue", {
+                  rank: report.rank.rank,
+                  total: report.rank.outOf,
+                })}
+              </p>
+            )}
+          </ParentReportSection>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function ParentReportSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-cream-200 bg-cream-50 p-3">
+      <h3 className="mb-1.5 text-xs font-semibold text-primary-800">{title}</h3>
+      {children}
+    </div>
   );
 }

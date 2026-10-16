@@ -19,8 +19,10 @@ import {
   getCircleChampions,
   getCircleReport,
   getLeaderboard,
+  getParentWeeklyReport,
   getStudentReport,
 } from "../services/report.service.js";
+import { listCircles } from "../services/circle.service.js";
 import { assertSupervisorOwnsCircle } from "./shared/assertSupervisorOwnsCircle.js";
 
 export function createReportsRouter() {
@@ -70,6 +72,28 @@ export function createReportsRouter() {
     },
   );
 
+  router.get(
+    "/parent-weekly/:id",
+    validateParams(studentIdParamSchema),
+    validateQuery(reportDateRangeQuerySchema),
+    async (req, res) => {
+      const student = await getStudent(req.user!.organizationId, req.params.id!);
+      await assertSupervisorOwnsCircle(
+        req.user!.organizationId,
+        req.user!.role,
+        req.user!.id,
+        student.circleId.toString(),
+      );
+      const query = req.query as unknown as z.infer<typeof reportDateRangeQuerySchema>;
+      const report = await getParentWeeklyReport(
+        req.user!.organizationId,
+        req.params.id!,
+        query,
+      );
+      res.json({ success: true, data: report });
+    },
+  );
+
   router.get("/leaderboard", validateQuery(leaderboardQuerySchema), async (req, res) => {
     const query = req.query as unknown as z.infer<typeof leaderboardQuerySchema>;
     if (query.circleId) {
@@ -79,8 +103,25 @@ export function createReportsRouter() {
         req.user!.id,
         query.circleId,
       );
+      const leaderboard = await getLeaderboard(req.user!.organizationId, query);
+      res.json({ success: true, data: leaderboard });
+      return;
     }
-    const leaderboard = await getLeaderboard(req.user!.organizationId, query);
+
+    // No circleId given: a supervisor sees only their own circles' students
+    // by default, an admin/super_admin sees the whole org — same scoping
+    // rule tasks.routes.ts's pending-approvals queue already uses.
+    let circleIds: string[] | undefined;
+    if (req.user!.role === "supervisor") {
+      const ownCircles = await listCircles(req.user!.organizationId, {
+        supervisorId: req.user!.id,
+      });
+      circleIds = ownCircles.map((c) => c._id.toString());
+    }
+    const leaderboard = await getLeaderboard(req.user!.organizationId, {
+      ...query,
+      circleIds,
+    });
     res.json({ success: true, data: leaderboard });
   });
 
@@ -89,7 +130,15 @@ export function createReportsRouter() {
     validateQuery(circleChampionsQuerySchema),
     async (req, res) => {
       const query = req.query as unknown as z.infer<typeof circleChampionsQuerySchema>;
-      const champions = await getCircleChampions(req.user!.organizationId, query.period);
+      // A supervisor's home screen must only ever show their own circle(s)
+      // here — this endpoint previously ignored role entirely and returned
+      // every circle in the organization to every caller.
+      const supervisorId = req.user!.role === "supervisor" ? req.user!.id : undefined;
+      const champions = await getCircleChampions(
+        req.user!.organizationId,
+        query.period,
+        supervisorId,
+      );
       res.json({ success: true, data: champions });
     },
   );

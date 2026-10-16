@@ -16,6 +16,7 @@ import { createAttendanceRouter } from "@/routes/attendance.routes.js";
 import { createAuthRouter } from "@/routes/auth.routes.js";
 import { createCirclesRouter } from "@/routes/circles.routes.js";
 import { createGradesRouter } from "@/routes/grades.routes.js";
+import { createMemorizationRouter } from "@/routes/memorization.routes.js";
 import { createOrganizationsRouter } from "@/routes/organizations.routes.js";
 import { createQuestionsRouter } from "@/routes/questions.routes.js";
 import { createReportsRouter } from "@/routes/reports.routes.js";
@@ -57,6 +58,7 @@ export function createApp() {
   app.use("/api/v1/users", createUsersRouter());
   app.use("/api/v1/attendance", createAttendanceRouter());
   app.use("/api/v1/grades", createGradesRouter());
+  app.use("/api/v1/memorization", createMemorizationRouter());
   app.use("/api/v1/questions", createQuestionsRouter());
   app.use("/api/v1/tasks", createTasksRouter());
   app.use("/api/v1/reports", createReportsRouter());

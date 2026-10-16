@@ -6,6 +6,7 @@ import { useCircle } from "@/queries/circles";
 
 import { AttendanceTab } from "./AttendanceTab";
 import { GradesTab } from "./GradesTab";
+import { MemorizationTab } from "./MemorizationTab";
 import { QuestionsTab } from "./QuestionsTab";
 import { ReportTab } from "./ReportTab";
 import { StudentsTab } from "./StudentsTab";
@@ -47,6 +48,7 @@ export function CircleDetail() {
           <Tab value="students">{t("nav.students")}</Tab>
           <Tab value="attendance">{t("nav.attendance")}</Tab>
           <Tab value="grades">{t("nav.grades")}</Tab>
+          <Tab value="memorization">{t("nav.memorization")}</Tab>
           <Tab value="questions">{t("nav.questions")}</Tab>
           <Tab value="tasks">{t("nav.tasks")}</Tab>
           <Tab value="report">{t("nav.report")}</Tab>
@@ -59,6 +61,9 @@ export function CircleDetail() {
         </TabPanel>
         <TabPanel value="grades">
           <GradesTab circleId={circle._id} />
+        </TabPanel>
+        <TabPanel value="memorization">
+          <MemorizationTab circleId={circle._id} />
         </TabPanel>
         <TabPanel value="questions">
           <QuestionsTab circleId={circle._id} />

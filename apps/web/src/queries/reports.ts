@@ -115,6 +115,50 @@ export async function fetchStudentReport(
   return res.data.data;
 }
 
+export interface ParentWeeklyReportAyahEntry {
+  date: string;
+  surahNumber: number;
+  surahName: string;
+  fromAyah: number;
+  toAyah: number;
+}
+
+export interface ParentWeeklyReport {
+  student: {
+    id: string;
+    fullName: string;
+    circleId: string;
+    circleName: string;
+    totalPoints: number;
+  };
+  range: { from: string; to: string };
+  rank: { rank: number; outOf: number } | null;
+  attendance: { present: number; late: number; absent: number; excused: number };
+  newMemorization: ParentWeeklyReportAyahEntry[];
+  revision: ParentWeeklyReportAyahEntry[];
+}
+
+/**
+ * One-off fetch (same reasoning as `fetchStudentReport`) for the "send this
+ * week's report to the parent" action — nothing to keep live in the
+ * background for a report built once and sent.
+ */
+export async function fetchParentWeeklyReport(
+  studentId: string,
+  range: StudentReportRange = {},
+): Promise<ParentWeeklyReport> {
+  const res = await apiClient.get<{ data: ParentWeeklyReport }>(
+    `/reports/parent-weekly/${studentId}`,
+    {
+      params: {
+        from: range.from?.toISOString(),
+        to: range.to?.toISOString(),
+      },
+    },
+  );
+  return res.data.data;
+}
+
 export interface CircleChampion {
   circleId: string;
   circleName: string;

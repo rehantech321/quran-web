@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -25,6 +25,7 @@ import {
   useUpdateCircle,
 } from "@/queries/circles";
 import { useCircleChampions } from "@/queries/reports";
+import { useSearchStudents } from "@/queries/students";
 import { useStaff } from "@/queries/users";
 import { useAuthStore } from "@/store/authStore";
 import type { CircleWithStats } from "@/types/api";
@@ -85,6 +86,8 @@ export function CirclesList() {
           )}
         </div>
       </div>
+
+      <StudentSearchBox />
 
       <ChampionsWidget />
 
@@ -175,6 +178,78 @@ export function CirclesList() {
 
       <CreateCircleModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <EditCircleModal circle={editingCircle} onClose={() => setEditingCircle(null)} />
+    </div>
+  );
+}
+
+/**
+ * Find any student by name, across every circle the caller can see (every
+ * circle for admin/super_admin; their own circle(s) only for a supervisor —
+ * enforced server-side by `GET /students/search`, same rule as every other
+ * cross-circle endpoint). Debounced locally so typing doesn't fire a request
+ * per keystroke; results clear as soon as the box empties.
+ */
+function StudentSearchBox() {
+  const { t } = useTranslation();
+  const [input, setInput] = useState("");
+  const [debounced, setDebounced] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(input), 300);
+    return () => clearTimeout(timer);
+  }, [input]);
+
+  const { data: results, isFetching } = useSearchStudents(debounced);
+  const showResults = debounced.trim().length > 0;
+
+  return (
+    <div className="relative">
+      <Input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder={t("student.searchPlaceholder")}
+        aria-label={t("student.searchPlaceholder")}
+      />
+      {showResults && (
+        <Card className="absolute inset-x-0 top-full z-20 mt-1 max-h-80 overflow-y-auto p-1">
+          {isFetching && (
+            <p className="p-3 text-center text-sm text-ink-600">{t("common.loading")}</p>
+          )}
+          {!isFetching && results?.length === 0 && (
+            <p className="p-3 text-center text-sm text-ink-600">
+              {t("common.noResults")}
+            </p>
+          )}
+          {!isFetching &&
+            results?.map((s) => (
+              <Link
+                key={s._id}
+                to={`/app/students/${s._id}`}
+                onClick={() => setInput("")}
+                className="flex items-center gap-3 rounded-lg p-2 hover:bg-cream-100"
+              >
+                {s.photoUrl ? (
+                  <img
+                    src={s.photoUrl}
+                    alt=""
+                    className="h-9 w-9 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-9 w-9 shrink-0 rounded-full bg-cream-200" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink-900">
+                    {s.fullName}
+                  </p>
+                  <p className="truncate text-xs text-ink-600">{s.circleName ?? "—"}</p>
+                </div>
+                <span className="shrink-0 text-xs text-primary-900">
+                  {s.totalPoints} {t("common.points")}
+                </span>
+              </Link>
+            ))}
+        </Card>
+      )}
     </div>
   );
 }

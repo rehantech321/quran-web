@@ -1080,4 +1080,211 @@ transaction and can share a millisecond, leaving their order undefined. Added `_
 tiebreaker. I had been dismissing this as "known flaky" for several rounds; it was a real
 (test-only) nondeterminism with a one-line cause.
 
+## Post-launch — a supervisor's home screen leaked every other circle in the org
+
+Reported: "when teachers log in, they can see other halaqat." Audited every route a
+supervisor can reach, grep'ing every file in `routes/` for `assertSupervisorOwnsCircle`
+and `role === "supervisor"` rather than re-reading from memory. Most of the app scopes
+correctly and already has tests proving it (`GET /circles`, `/circles/:id`, attendance,
+grades, questions, tasks, students all check circle ownership before returning anything).
+Two routes in `reports.routes.ts` did not:
+
+- **`GET /reports/champions`** — the "Champions of the Circles" widget on the Circles-list
+  screen, the very first thing a supervisor sees after logging in. It called
+  `getCircleChampions(organizationId, period)` with no notion of the caller's role at all,
+  so it always returned _every_ circle in the organization and its top student — name,
+  photo, points — to anyone authenticated, supervisor or admin alike.
+- **`GET /reports/leaderboard`** with no `circleId` query param. The ownership check only
+  ran `if (query.circleId)` — supplying no circleId skipped it entirely and fell through
+  to an org-wide leaderboard across every student in every circle.
+
+Both are now role-aware: `getCircleChampions` takes an optional `supervisorId` and passes
+it through to the same `listCircles(... {supervisorId})` scoping `GET /circles` already
+uses; `getLeaderboard`'s filter gained a `circleIds` option (mirroring the `circleId` /
+`circleIds` split `getPendingApprovals` in task.service.ts already established) so the
+no-`circleId` leaderboard path can scope to "every circle this supervisor owns" instead of
+either one circle or the whole org. An admin/super_admin still sees everything in both —
+only a `supervisor` token was ever the problem.
+
+Verified with two regression tests reproducing the leak against the old code first (both
+failed as expected — a second supervisor's circle/students showed up), then passed after
+the fix. Confirmed existing architecture already supports the user's actual ask — one
+login per teacher, each assigned their own circle via the Settings → Supervisors flow
+(`createStaff` with `role: "supervisor"`, already shipped) — so this was purely the two
+missing scope checks, not a design gap requiring new account infrastructure. Still worth
+confirming directly with the user: if multiple teachers were sharing one login (the admin
+account, or one supervisor account between several teachers), no scoping fix can separate
+views that are the same account — that would need actually creating one account per
+teacher first.
+
+**Test-infra note, found while verifying:** appending the two new tests to the already
+12-test `reports.routes.test.ts` pushed it into intermittent
+`MongooseError: Connection operation buffering timed out after 10000ms` failures near the
+end of the run (reproduced 3 times in a row; every failing test passed cleanly alone,
+confirming it wasn't a logic bug in any of them — just this machine's in-memory
+single-member replica set running out of headroom under a long sequential chain of
+transactional tests in one file). Split the two new tests into their own
+`reports.scoping.routes.test.ts` — each test file gets its own replica set
+(`dbTestUtils.ts`), so this is a real fix for the resource ceiling, not a timeout bump
+papering over it. Full suite ran green three times in a row afterward (69/69 each time).
+
+## Post-launch — cross-circle student search
+
+Requested: a search box for finding any student by name, regardless of which circle
+they're in, since the only way to find one before this was opening each circle and
+scanning its roster by eye.
+
+New `GET /students/search?q=` (`student.service.ts#searchStudents`), registered _before_
+`GET /students/:id` in `students.routes.ts` — Express matches path segments in
+registration order, and a literal `/students/search` would otherwise be swallowed by the
+`:id` param route above it and treated as a lookup for a (nonexistent) student with id
+`"search"`. Case-insensitive substring match on `fullName` via a `$regex`, not a text
+index — at mosque scale (tens to low hundreds of students) a regex scan is plenty fast,
+and it avoids MongoDB text indexes' English-centric stemming/stopword behavior doing
+something unpredictable to Arabic names. The query string is regex-escaped before use
+(`escapeRegExp`) so a name containing `(`, `.`, `+`, etc. is matched literally instead of
+being interpreted as a pattern or throwing. Results are capped at 20 and include each
+match's circle name, so "which حلقة is this student in" is answered by the search itself.
+
+Scoped by role using the exact pattern this conversation just finished applying to
+`/reports/leaderboard` and `/reports/champions`: admin/super_admin searches every circle
+in the organization; a supervisor's search is pre-filtered to `circleIds` resolved from
+their own circles, via `listCircles(... {supervisorId})`. Covered by a dedicated
+`students.search.routes.test.ts` (own replica set, same reasoning as the reports-scoping
+split above) including a cross-supervisor case — a supervisor's query for a name that
+matches a student in _another_ supervisor's circle must not return that student.
+
+Frontend: a debounced (300ms) search box at the top of the Circles-list home screen
+(`StudentSearchBox` in `CirclesList.tsx`) rather than a new nav tab — the staff bottom
+tab bar is already at SPEC's 4-tab mobile limit (Phase 9), and the circles list is the
+first screen after login for every role this feature is for. Typing shows a dropdown of
+matches (photo, name, circle, points); clicking one navigates straight to that student's
+profile via the existing `/app/students/:id` route — no new screen needed.
+
+Verified live, not just by tests passing: booted the real API against a throwaway
+in-memory replica set, seeded two circles under two different supervisors with students
+sharing a surname across both, started the actual Vite dev server against it, and drove
+the whole flow with Playwright — logged in as admin, searched a shared surname and
+confirmed both circles' matching students appeared together, narrowed the query to a
+single match, clicked through and confirmed it landed on the exactly-right student's own
+edit page (not just "a" student), then logged in as one of the two supervisors and
+confirmed their identical search only ever returned their own student, never the other
+supervisor's with the matching surname. Screenshots taken at each step. Chose a non-default
+dev port for this session's own verification server rather than the project's usual 5173,
+since another node process had already been holding that port since the day before and
+killing an unidentified long-running process on the user's machine wasn't this task's call
+to make.
+
+## Post-launch — weekly memorization points, and a full daily memorization/revision log
+
+Two requested features, both scoped per student within a circle.
+
+**Weekly memorization points** is deliberately _not_ a new points mechanism — it's a
+faster door into the one that already exists. `WeeklyMemorizationButton` (a new icon next
+to each student, alongside the WhatsApp button) opens a modal with four preset buttons
+(5/10/15/20 pages → 50/100/150/200 points) that call the exact same `addManualPoints`
+endpoint the general "Adjust points" form on a student's profile already uses, with an
+auto-filled, already-translated reason ("Memorized N pages this week") instead of typing
+both an amount and a reason by hand every time. No backend change was needed for this
+half at all.
+
+**Daily memorization/revision** is a genuinely new record: a Surah + ayah-range picker
+(new memorization) and a second one (revision), saved together as one `MemorizationLog`
+entry per save action — at least one of the two is required, not both. New shared
+reference data, `packages/shared/src/quran.ts`: all 114 surahs with their real ayah
+counts (standard Hafs/Uthmani numbering), used to populate the Surah/Ayah dropdowns in
+the UI _and_ to validate the range server-side (`toAyah` can't exceed that surah's real
+count — Al-Fatihah ayah 1-10 is rejected, it only has 7). Checked the data by summing
+every `ayahCount` and comparing against the well-known total of 6236 — it matched
+exactly, which is strong evidence against a transcription typo in any single entry. The
+resolved Surah name is snapshotted into the saved record at write time (not re-resolved
+from the lookup table on every read) — same reasoning `ledgerLabels.ts` already
+documented for why that's the right call. Like grades, no date field is shown in the
+form; the day is stamped silently at save time — this app already has one explicit
+correction on record for showing a date picker when it wasn't wanted (see the grades
+entry above), so this one skipped straight to the lesson already learned.
+
+Scoped by role using the same pattern as every cross-circle endpoint fixed earlier in
+this log: a supervisor's unfiltered listing only ever returns their own circle(s)'
+records (`listMemorization`'s new `circleIds` option, mirroring `getLeaderboard`'s).
+Covered by a dedicated `memorization.routes.test.ts`, including the now-standard
+cross-supervisor case.
+
+Added horizontal scroll to `TabList` (`overflow-x-auto whitespace-nowrap`) while here —
+circle detail is now at 7 tabs, and the component never had overflow handling for a
+narrow phone screen. Purely additive; doesn't change layout for any existing usage that
+already fit.
+
+**Test-infra note:** adding this round's new test files triggered the same
+`MongooseError: Connection operation buffering timed out after 10000ms` failure
+documented in the cross-supervisor-leak entry above — but this time in the _previously
+unrelated_ `reports.routes.test.ts`, 2/2 times, always the same test, always ~17s. Not
+random: the earlier fix (splitting one bloated file) only ever treated a symptom: this
+machine's in-memory replica sets, run enough of them back-to-back across a growing full
+suite, occasionally can't finish connecting inside Mongoose's default 10s
+`bufferTimeoutMS` window. Fixed at the actual root this time: `dbTestUtils.ts` now sets
+`bufferTimeoutMS` to 30s for every test file. Verified by running the full suite three
+times in a row clean (78/78 each time) immediately after — the same thing the file-split
+"fix" could never reliably achieve, since the suite keeps growing.
+
+Verified both features live end-to-end, not just via tests: booted the real API against
+a throwaway in-memory replica set, seeded a circle and a student, started the actual Vite
+dev server, and drove the whole flow with Playwright — opened the weekly-points modal,
+confirmed the Arabic plural grammar renders correctly on the four presets (`"5/10 صفحات"`
+vs. `"15/20 صفحة"` — different grammatical number classes, both handled correctly via
+i18next's CLDR plural suffixes, not hardcoded), awarded 100 points and confirmed it
+landed on the student's card; then filled the full daily-memorization form (new
+memorization in Al-Mulk, revision in Al-Baqarah), saved, and confirmed both ranges
+appeared correctly in the history list below with today's date and the correct Surah
+names. Zero console errors throughout. Screenshots taken at each step.
+
+## Post-launch — Weekly Report for Parents
+
+- **New endpoint, `GET /reports/parent-weekly/:id`, rather than extending the existing
+  `/reports/student/:id`.** The existing student report's `stats.attendanceRate` is
+  deliberately a percentage, used by the pre-existing periodic WhatsApp message in
+  `StudentForm.tsx`. This feature's request was explicit and emphasized: "Attendance
+  must be displayed as the actual number of days present and absent, not as
+  percentages." Rather than overload one endpoint with two different attendance
+  representations, this ships as its own report shape (`getParentWeeklyReport` in
+  report.service.ts) with its own actual-day-count fields, new-memorization/revision
+  ranges pulled from `MemorizationLog`, and the student's rank within their own circle
+  (via the existing `getLeaderboard`, period `"all"` — the same all-time ranking the
+  Champions widget and leaderboard already use elsewhere). Defaults to the trailing 7
+  days when no explicit range is given.
+- **Bug caught only by live verification, not by the unit tests**: the attendance counts
+  initially surfaced `status === "present"` alone as "days attended," dropping any day
+  marked `"late"` entirely — not counted as present _or_ absent, just silently missing.
+  A student who showed up late every single day would have read as "0 days attended."
+  The existing `attendanceRate` calculation elsewhere already treats present+late as
+  attendance (a late arrival still attended); the new report's display layer
+  (`ParentWeeklyReportCard` in StudentForm.tsx and `buildParentWeeklyReportMessage`) now
+  matches that same convention. The API layer still exposes `present`/`late`/`absent`/
+  `excused` as separate raw counts, in case a future caller needs the breakdown — only
+  the two presentation layers merge present+late into the single "days attended" figure
+  shown to parents. The unit tests didn't catch this because they asserted against the
+  raw API response shape (which was always correct); the bug was purely in how the
+  frontend chose to roll those counts up for display, something a browser-driven check
+  that pins no fake clock during attendance recording (and so can genuinely exercise the
+  "recorded late" auto-upgrade — see attendance.service.ts's `resolveManualStatus`) is
+  what actually exposed it.
+- **Two delivery paths in one card, not two separate features**: "View report" renders
+  the same data as organized, labeled sections in-app; "Send weekly report to parent"
+  always fetches a fresh copy of the report (not the possibly-stale one already shown)
+  and opens WhatsApp with it formatted as plain text via `buildParentWeeklyReportMessage`
+  — satisfying both "through the application" and the explicitly-emphasized WhatsApp
+  requirement from the same control, rather than building two separate UIs for what's
+  fundamentally one report.
+
+Verified live end-to-end: booted the real API against a throwaway in-memory replica set,
+seeded a student with two present-day and one absent-day attendance records, two
+memorization log entries (new memorization in Al-Baqarah across two sessions, revision in
+Al-Fatiha), and 100 manual points; logged in as admin via the real `/login` form in a
+real browser; opened the student's profile; expanded "Weekly Report for Parents" and
+confirmed all sections rendered (new memorization, revision, attendance, points & rank)
+with correct Arabic surah names and ayah ranges; clicked "send via WhatsApp" and
+inspected the resulting `wa.me` link's decoded message text to confirm the exact wording
+sent to a parent. This run is what caught and fixed the present/late attendance bug above
+— confirmed fixed by re-running the same script afterward.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

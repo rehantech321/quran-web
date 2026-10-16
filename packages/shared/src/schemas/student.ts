@@ -27,6 +27,12 @@ export const updateStudentSchema = z.object({
 });
 export type UpdateStudentInput = z.infer<typeof updateStudentSchema>;
 
+/** Cross-circle name search (SPEC extension: "search for any student by name across all circles"). */
+export const searchStudentsQuerySchema = z.object({
+  q: z.string().min(1).max(150),
+});
+export type SearchStudentsQuery = z.infer<typeof searchStudentsQuerySchema>;
+
 export const studentIdParamSchema = z.object({ id: objectIdSchema });
 export const studentSlugParamSchema = z.object({ slug: z.string().min(6).max(32) });
 

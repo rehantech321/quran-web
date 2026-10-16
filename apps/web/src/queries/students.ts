@@ -23,6 +23,33 @@ export function useStudentsByCircle(circleId: string | undefined) {
   });
 }
 
+export interface StudentSearchResult {
+  _id: string;
+  fullName: string;
+  photoUrl?: string;
+  level?: string;
+  totalPoints: number;
+  isActive: boolean;
+  circleId: string;
+  circleName: string | null;
+}
+
+/** Cross-circle name search (admin: every circle; supervisor: their own circle(s) only — enforced server-side). */
+export function useSearchStudents(query: string) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ["students", "search", trimmed],
+    queryFn: async () => {
+      const res = await apiClient.get<{ data: StudentSearchResult[] }>(
+        "/students/search",
+        { params: { q: trimmed } },
+      );
+      return res.data.data;
+    },
+    enabled: trimmed.length > 0,
+  });
+}
+
 export function useStudent(studentId: string | undefined) {
   return useQuery({
     queryKey: ["students", studentId],

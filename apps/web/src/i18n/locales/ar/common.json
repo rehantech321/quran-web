@@ -52,6 +52,7 @@
     "students": "الطلاب",
     "attendance": "الحضور",
     "grades": "الدرجات",
+    "memorization": "الحفظ",
     "questions": "الأسئلة",
     "tasks": "المهام",
     "approvals": "طلبات الموافقة",
@@ -92,6 +93,7 @@
   },
   "student": {
     "fullName": "الاسم الكامل",
+    "searchPlaceholder": "ابحث عن طالب بالاسم، في جميع الحلقات…",
     "parentPhone": "جوال ولي الأمر",
     "studentPhone": "جوال الطالب",
     "level": "المستوى",
@@ -116,7 +118,12 @@
     "adjustPoints": "تعديل النقاط",
     "pointsAmount": "النقاط",
     "pointsAmountHint": "موجب للإضافة، سالب للخصم",
-    "pointsReason": "السبب"
+    "pointsReason": "السبب",
+    "weeklyMemorizationIcon": "نقاط الحفظ الأسبوعية",
+    "weeklyMemorizationTitle": "نقاط الحفظ الأسبوعية — {{name}}",
+    "weeklyMemorizationReason": "حفظ {{pages}} صفحات هذا الأسبوع",
+    "pagesCount_few": "{{count}} صفحات",
+    "pagesCount_many": "{{count}} صفحة"
   },
   "whatsapp": {
     "title": "التواصل مع ولي الأمر عبر واتساب",
@@ -139,6 +146,29 @@
     "tasksApproved": "المهام المنجزة",
     "pointsEarned": "النقاط المكتسبة في هذه الفترة",
     "reportFooter": "من تطبيق {{orgName}}"
+  },
+  "parentReport": {
+    "title": "التقرير الأسبوعي لولي الأمر",
+    "sendReport": "إرسال التقرير الأسبوعي لولي الأمر",
+    "preparingReport": "جارٍ تجهيز التقرير...",
+    "viewReport": "عرض التقرير",
+    "hideReport": "إخفاء التقرير",
+    "greeting": "السلام عليكم، هذا التقرير الأسبوعي للطالب {{name}}",
+    "periodLine": "من {{from}} إلى {{to}}",
+    "newMemorizationHeading": "الحفظ الجديد",
+    "revisionHeading": "المراجعة",
+    "noNewMemorization": "لا يوجد حفظ جديد هذا الأسبوع",
+    "noRevision": "لا توجد مراجعة هذا الأسبوع",
+    "ayahRangeLine": "{{surah}}، من الآية {{from}} إلى {{to}}",
+    "attendanceHeading": "الحضور",
+    "daysPresent": "أيام الحضور",
+    "daysAbsent": "أيام الغياب",
+    "pointsHeading": "النقاط والترتيب",
+    "totalPoints": "مجموع النقاط",
+    "rankInCircle": "الترتيب في الحلقة",
+    "rankValue": "{{rank}} من {{total}}",
+    "footer": "من تطبيق {{orgName}}",
+    "reportFetchError": "تعذّر تجهيز التقرير، حاول مرة أخرى"
   },
   "attendance": {
     "present": "حاضر",
@@ -167,6 +197,14 @@
     "selectStudent": "اختر الطالب",
     "selectStudentHint": "القائمة تعرض طلاب هذه الحلقة فقط",
     "entryCount": "{{count}} درجة"
+  },
+  "memorization": {
+    "addEntry": "إضافة سجل يومي",
+    "surah": "السورة",
+    "fromAyah": "من الآية",
+    "toAyah": "إلى الآية",
+    "newMemorization": "الحفظ الجديد",
+    "revision": "المراجعة"
   },
   "questions": {
     "questionText": "نص السؤال",
