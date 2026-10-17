@@ -328,6 +328,8 @@
     "requirePin": "Require student PIN",
     "supervisors": "Supervisors",
     "addSupervisor": "Add supervisor",
+    "deleteSupervisorConfirm": "Are you sure you want to remove this supervisor?",
+    "supervisorHasCircles": "This supervisor still has circles assigned and cannot be removed — reassign their circles first",
     "attendancePresent": "Present points",
     "attendanceLate": "Late points",
     "attendanceAbsent": "Absent points",

@@ -26,6 +26,16 @@ export function useCreateStaff() {
   });
 }
 
+export function useDeleteStaff() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/users/${id}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
 export function useUpdateStaff() {
   const queryClient = useQueryClient();
   return useMutation({

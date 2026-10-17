@@ -329,6 +329,8 @@
     "requirePin": "طلب رمز PIN للطلاب",
     "supervisors": "المشرفون",
     "addSupervisor": "إضافة مشرف",
+    "deleteSupervisorConfirm": "هل أنت متأكد من إزالة هذا المشرف؟",
+    "supervisorHasCircles": "لا يمكن إزالة هذا المشرف لوجود حلقات مسندة إليه — أعد إسناد حلقاته أولاً",
     "attendancePresent": "نقاط الحضور",
     "attendanceLate": "نقاط التأخير",
     "attendanceAbsent": "نقاط الغياب",

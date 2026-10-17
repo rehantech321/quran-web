@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Card, CardBody, Input } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useOrganization, useUpdateOrganization } from "@/queries/organizations";
-import { useCreateStaff, useStaff } from "@/queries/users";
+import { useCreateStaff, useDeleteStaff, useStaff } from "@/queries/users";
 import { useAuthStore } from "@/store/authStore";
 
 export function Settings() {
@@ -240,10 +240,14 @@ function SupervisorsSection() {
   const { t } = useTranslation();
   const { data: staff } = useStaff();
   const createStaff = useCreateStaff();
+  const deleteStaff = useDeleteStaff();
   const [showForm, setShowForm] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(
+    null,
+  );
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -252,6 +256,19 @@ function SupervisorsSection() {
     setEmail("");
     setPassword("");
     setShowForm(false);
+  }
+
+  async function onDelete(id: string) {
+    if (!window.confirm(t("settings.deleteSupervisorConfirm"))) return;
+    setDeleteError(null);
+    try {
+      await deleteStaff.mutateAsync(id);
+    } catch (err) {
+      // Refused (409) while the supervisor still has circles assigned —
+      // same "move the dependents off first" shape as deleting a circle
+      // with active students (see circles.deleteBlocked).
+      setDeleteError({ id, message: getApiErrorMessage(err, t("common.error")) });
+    }
   }
 
   return (
@@ -306,9 +323,29 @@ function SupervisorsSection() {
           {staff
             ?.filter((s) => s.role === "supervisor")
             .map((s) => (
-              <div key={s.id} className="flex items-center justify-between text-sm">
-                <span>{s.fullName}</span>
-                <span className="text-xs text-ink-600">{s.email}</span>
+              <div
+                key={s.id}
+                className="flex flex-col gap-1 border-b border-cream-200 py-1.5 last:border-0"
+              >
+                <div className="flex items-center justify-between text-sm">
+                  <span>{s.fullName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-ink-600">{s.email}</span>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => onDelete(s.id)}
+                      disabled={deleteStaff.isPending}
+                    >
+                      {t("common.delete")}
+                    </Button>
+                  </div>
+                </div>
+                {deleteError?.id === s.id && (
+                  <p role="alert" className="text-xs text-danger">
+                    {deleteError.message}
+                  </p>
+                )}
               </div>
             ))}
         </div>

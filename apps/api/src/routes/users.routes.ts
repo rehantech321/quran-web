@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { validateBody, validateParams } from "../middleware/validate.js";
 import {
   createStaffMember,
+  deleteStaffMember,
   getStaffMember,
   listStaff,
   updateStaffMember,
@@ -70,6 +71,16 @@ export function createUsersRouter() {
       res.json({ success: true, data: toPublicUser(user) });
     },
   );
+
+  router.delete("/:id", validateParams(userIdParamSchema), async (req, res) => {
+    const user = await deleteStaffMember(
+      req.user!.organizationId,
+      req.user!.role,
+      req.user!.id,
+      req.params.id!,
+    );
+    res.json({ success: true, data: toPublicUser(user) });
+  });
 
   return router;
 }

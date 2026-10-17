@@ -1287,4 +1287,34 @@ inspected the resulting `wa.me` link's decoded message text to confirm the exact
 sent to a parent. This run is what caught and fixed the present/late attendance bug above
 — confirmed fixed by re-running the same script afterward.
 
+## Post-launch — Admin can remove a supervisor
+
+- **`DELETE /users/:id`, soft-delete, same shape as `deleteCircle`.** Sets `deletedAt` +
+  `isActive: false` rather than removing the document — consistent with every other
+  model's soft-delete convention (SPEC.md §4) and with how `deleteCircle` already
+  refuses a delete that would orphan dependents rather than silently cascading.
+- **Refuses to remove a supervisor who still has an active circle assigned.** A circle's
+  `supervisorId` is required and non-nullable — deleting the account out from under it
+  would leave a circle no one could manage. Blocked with a 409 (`ConflictError`), the
+  same status `deleteCircle` already uses for "still has active students"; the fix is to
+  reassign the supervisor's circles to someone else first, then delete.
+- **An admin cannot delete their own account**, and an admin can only remove
+  supervisor/admin accounts, never `super_admin` — mirrors `assertCreatableRole`'s
+  existing ceiling on who can _create_ which role, applied symmetrically to deletion.
+- **No translated copy for the blocked-delete message**, matching the existing
+  (unwired) `circles.deleteBlocked` precedent — `getApiErrorMessage` surfaces the raw
+  server error text as-is; a `settings.supervisorHasCircles` key was added for future
+  wiring but isn't yet connected to the display path. This is a pre-existing gap in how
+  the app surfaces domain errors generally (not introduced here), so fixing it for real
+  would mean touching the circle-delete flow too — left alone to keep this change scoped
+  to what was actually asked.
+
+Verified live: booted the real API against a throwaway in-memory replica set, seeded an
+admin, a supervisor with no circles, and a supervisor with one active circle; logged in
+as admin in a real browser, opened Settings, deleted the unattached supervisor (listing
+updated immediately) and attempted to delete the one still assigned to a circle (request
+refused, the existing row stayed, and the 409's message rendered under it). Also covered
+by 6 new route tests (permission ceiling, self-delete guard, cross-tenant 404, and the
+reassign-then-delete path) — full suite still green at 87/87.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_
