@@ -122,3 +122,80 @@ describe("DELETE /users/:id", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("POST /users", () => {
+  let app: Express;
+
+  beforeAll(async () => {
+    await connectTestDb();
+    app = createApp();
+  }, 60_000);
+  afterAll(disconnectTestDb);
+  beforeEach(clearTestDb);
+
+  it("creates a supervisor", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+
+    const res = await request(app)
+      .post("/api/v1/users")
+      .set("Authorization", authHeader(admin))
+      .send({
+        fullName: "test1",
+        email: "test1@gmail.com",
+        password: "Test@12345",
+        role: "supervisor",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.email).toBe("test1@gmail.com");
+  });
+
+  it("refuses a duplicate email with a clear 409 instead of a raw 500", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const body = {
+      fullName: "test1",
+      email: "test1@gmail.com",
+      password: "Test@12345",
+      role: "supervisor",
+    };
+
+    const first = await request(app)
+      .post("/api/v1/users")
+      .set("Authorization", authHeader(admin))
+      .send(body);
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post("/api/v1/users")
+      .set("Authorization", authHeader(admin))
+      .send({ ...body, fullName: "test2" });
+    expect(second.status).toBe(409);
+    expect(second.body.error.message).toMatch(/email/i);
+  });
+
+  it("a duplicate email in a different organization is not blocked — uniqueness is per-org", async () => {
+    const orgA = await createTestOrg();
+    const orgB = await createTestOrg();
+    const adminA = await createTestAdmin(orgA._id);
+    const adminB = await createTestAdmin(orgB._id);
+    const body = {
+      fullName: "test1",
+      email: "shared@gmail.com",
+      password: "Test@12345",
+      role: "supervisor",
+    };
+
+    const first = await request(app)
+      .post("/api/v1/users")
+      .set("Authorization", authHeader(adminA))
+      .send(body);
+    expect(first.status).toBe(201);
+
+    const second = await request(app)
+      .post("/api/v1/users")
+      .set("Authorization", authHeader(adminB))
+      .send(body);
+    expect(second.status).toBe(201);
+  });
+});

@@ -29,6 +29,22 @@ function assertCreatableRole(creatorRole: Role, targetRole: Role) {
   throw new ValidationError("You do not have permission to assign that role");
 }
 
+const DUPLICATE_KEY_ERROR_CODE = 11000;
+
+interface MongoDuplicateKeyError {
+  code: number;
+  keyPattern?: Record<string, unknown>;
+}
+
+function isDuplicateKeyError(err: unknown): err is MongoDuplicateKeyError {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: unknown }).code === DUPLICATE_KEY_ERROR_CODE
+  );
+}
+
 export async function createStaffMember(
   organizationId: string,
   creatorRole: Role,
@@ -36,15 +52,32 @@ export async function createStaffMember(
 ) {
   assertCreatableRole(creatorRole, input.role);
   const passwordHash = await hashPassword(input.password);
-  return User.create({
-    organizationId,
-    fullName: input.fullName,
-    email: input.email,
-    phone: input.phone,
-    passwordHash,
-    role: input.role,
-    avatarUrl: input.avatarUrl,
-  });
+  try {
+    return await User.create({
+      organizationId,
+      fullName: input.fullName,
+      email: input.email,
+      phone: input.phone,
+      passwordHash,
+      role: input.role,
+      avatarUrl: input.avatarUrl,
+    });
+  } catch (err) {
+    // User.email/phone are each unique per organization (User.ts) — without
+    // this, a second attempt with an email already in use (e.g. a retry
+    // after a flaky connection made the first attempt look like it failed)
+    // surfaced as a raw, unhandled Mongo error and a generic 500 instead of
+    // a message that actually explains what went wrong.
+    if (isDuplicateKeyError(err)) {
+      const field = err.keyPattern && "phone" in err.keyPattern ? "phone" : "email";
+      throw new ConflictError(
+        field === "email"
+          ? "A staff account with this email already exists in this organization"
+          : "A staff account with this phone number already exists in this organization",
+      );
+    }
+    throw err;
+  }
 }
 
 export async function updateStaffMember(
@@ -60,7 +93,19 @@ export async function updateStaffMember(
   if (updates.avatarUrl !== undefined) user.avatarUrl = updates.avatarUrl;
   if (updates.isActive !== undefined) user.isActive = updates.isActive;
 
-  await user.save();
+  try {
+    await user.save();
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      const field = err.keyPattern && "phone" in err.keyPattern ? "phone" : "email";
+      throw new ConflictError(
+        field === "email"
+          ? "A staff account with this email already exists in this organization"
+          : "A staff account with this phone number already exists in this organization",
+      );
+    }
+    throw err;
+  }
   return user;
 }
 

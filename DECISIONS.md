@@ -1317,4 +1317,26 @@ refused, the existing row stayed, and the 409's message rendered under it). Also
 by 6 new route tests (permission ceiling, self-delete guard, cross-tenant 404, and the
 reassign-then-delete path) — full suite still green at 87/87.
 
+## Post-launch — Fixed: creating a supervisor with a duplicate email/phone 500'd
+
+Reported live: an admin tried to add a supervisor and got the generic
+"A server error occurred while processing your request" instead of any
+explanation. Reproduced with a test before touching anything — `POST /users`
+with an email already used by another account in the org throws a raw Mongo
+`E11000 duplicate key` error (from `User`'s unique-per-organization index on
+email/phone, see User.ts), which wasn't an instance of any error class
+`errorHandler.ts` recognizes, so it fell through to the generic 500 branch.
+
+Fixed the same way `question.service.ts` already handles this exact failure
+mode for a different unique index (one answer per student per question):
+wrap the write in try/catch, detect a duplicate-key error (`code === 11000`),
+and throw a `ConflictError` with a message that names which field collided
+(email vs. phone, read from the error's `keyPattern`). Applied to both
+`createStaffMember` and `updateStaffMember` — editing a staff member's email
+to one already in use hit the identical gap. Confirmed-by-test: the repro
+(create "test1@gmail.com" twice) now returns 409 with "A staff account with
+this email already exists in this organization" instead of a 500, while the
+same email in a _different_ organization is correctly allowed (uniqueness is
+per-org, not global). 3 new tests added; full suite 90/90 green.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_
