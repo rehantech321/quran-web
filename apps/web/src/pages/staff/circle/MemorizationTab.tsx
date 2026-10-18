@@ -1,21 +1,55 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { QURAN_SURAHS } from "@halaqat/shared";
+import { MEMORIZATION_EVALUATIONS, QURAN_SURAHS } from "@halaqat/shared";
 
-import { Button, Card, EmptyState, Select, SkeletonText } from "@/components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Select,
+  SkeletonText,
+  StatusChip,
+} from "@/components/ui";
+import type { ChipTone } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { useMemorizationHistory, useRecordMemorization } from "@/queries/memorization";
 import { useStudentsByCircle } from "@/queries/students";
-import type { AyahRange, MemorizationLogEntry } from "@/types/api";
+import type {
+  AyahRange,
+  MemorizationEvaluation,
+  MemorizationLogEntry,
+} from "@/types/api";
 
 interface RangeDraft {
   surahNumber: number | "";
   fromAyah: number | "";
   toAyah: number | "";
+  evaluation: MemorizationEvaluation | "";
 }
 
-const EMPTY_RANGE: RangeDraft = { surahNumber: "", fromAyah: "", toAyah: "" };
+const EMPTY_RANGE: RangeDraft = {
+  surahNumber: "",
+  fromAyah: "",
+  toAyah: "",
+  evaluation: "",
+};
+
+const EVALUATION_LABEL_KEYS: Record<MemorizationEvaluation, string> = {
+  excellent: "memorization.evaluationExcellent",
+  very_good: "memorization.evaluationVeryGood",
+  good: "memorization.evaluationGood",
+  weak: "memorization.evaluationWeak",
+};
+
+// Color alone is never the sole carrier of meaning (SPEC.md §8) — StatusChip
+// pairs each tone with its own glyph too.
+const EVALUATION_TONES: Record<MemorizationEvaluation, ChipTone> = {
+  excellent: "success",
+  very_good: "info",
+  good: "neutral",
+  weak: "warning",
+};
 
 function ayahOptions(surahNumber: number | ""): number[] {
   if (surahNumber === "") return [];
@@ -31,6 +65,7 @@ function toApiRange(draft: RangeDraft): Omit<AyahRange, "surahName"> | undefined
     surahNumber: draft.surahNumber,
     fromAyah: draft.fromAyah,
     toAyah: draft.toAyah,
+    evaluation: draft.evaluation === "" ? undefined : draft.evaluation,
   };
 }
 
@@ -57,8 +92,14 @@ function RangePicker({
           const surahNumber = e.target.value === "" ? "" : Number(e.target.value);
           // Changing the surah invalidates any previously-picked ayah range
           // (it almost certainly won't exist in the new surah) — reset both
-          // rather than silently keep an out-of-range value selected.
-          onChange({ surahNumber, fromAyah: "", toAyah: "" });
+          // rather than silently keep an out-of-range value selected. The
+          // evaluation isn't tied to the surah/ayah choice, so it survives.
+          onChange({
+            surahNumber,
+            fromAyah: "",
+            toAyah: "",
+            evaluation: value.evaluation,
+          });
         }}
       >
         <option value="">—</option>
@@ -108,14 +149,40 @@ function RangePicker({
             ))}
         </Select>
       </div>
+      <Select
+        label={t("memorization.evaluation")}
+        value={value.evaluation}
+        onChange={(e) =>
+          onChange({
+            ...value,
+            evaluation: e.target.value as MemorizationEvaluation | "",
+          })
+        }
+      >
+        <option value="">{t("memorization.evaluationNone")}</option>
+        {MEMORIZATION_EVALUATIONS.map((ev) => (
+          <option key={ev} value={ev}>
+            {t(EVALUATION_LABEL_KEYS[ev])}
+          </option>
+        ))}
+      </Select>
     </fieldset>
   );
 }
 
 function RangeSummary({ range }: { range: AyahRange }) {
+  const { t } = useTranslation();
   return (
-    <span>
-      {range.surahName} ({range.fromAyah}-{range.toAyah})
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <span>
+        {range.surahName} ({range.fromAyah}-{range.toAyah})
+      </span>
+      {range.evaluation && (
+        <StatusChip
+          tone={EVALUATION_TONES[range.evaluation]}
+          label={t(EVALUATION_LABEL_KEYS[range.evaluation])}
+        />
+      )}
     </span>
   );
 }

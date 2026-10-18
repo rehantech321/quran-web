@@ -88,11 +88,14 @@ export interface CircleGrade {
   notes?: string;
 }
 
+export type MemorizationEvaluation = "excellent" | "very_good" | "good" | "weak";
+
 export interface AyahRange {
   surahNumber: number;
   surahName: string;
   fromAyah: number;
   toAyah: number;
+  evaluation?: MemorizationEvaluation;
 }
 
 export interface MemorizationLogEntry {

@@ -1,5 +1,7 @@
 import { Schema, Types, model } from "mongoose";
 
+import { MEMORIZATION_EVALUATIONS, type MemorizationEvaluation } from "@halaqat/shared";
+
 import { orgScopedPlugin } from "./plugins/orgScoped.js";
 
 export interface AyahRangeFields {
@@ -7,6 +9,7 @@ export interface AyahRangeFields {
   surahName: string;
   fromAyah: number;
   toAyah: number;
+  evaluation?: MemorizationEvaluation;
 }
 
 export interface MemorizationLogFields {
@@ -30,6 +33,7 @@ const ayahRangeSchema = new Schema<AyahRangeFields>(
     surahName: { type: String, required: true, trim: true },
     fromAyah: { type: Number, required: true, min: 1 },
     toAyah: { type: Number, required: true, min: 1 },
+    evaluation: { type: String, enum: MEMORIZATION_EVALUATIONS },
   },
   { _id: false },
 );

@@ -1339,4 +1339,33 @@ this email already exists in this organization" instead of a 500, while the
 same email in a _different_ organization is correctly allowed (uniqueness is
 per-org, not global). 3 new tests added; full suite 90/90 green.
 
+## Post-launch — Memorization recitation evaluation (Excellent/Very Good/Good/Weak)
+
+- **Evaluation lives on each ayah range, not on the daily record as a whole.**
+  `MemorizationLog.newMemorization` and `.revision` are already independent, optional
+  sub-documents — a teacher can rate the new-memorization recitation "Very Good" and the
+  same day's revision recitation "Weak" in the same entry, which a single top-level
+  rating couldn't express. Added as `evaluation?: MemorizationEvaluation` on the
+  `AyahRangeFields` sub-schema (MemorizationLog.ts) and the matching `ayahRangeSchema`
+  zod shape (packages/shared), both optional — a range can still be logged before it's
+  been recited/rated.
+- **Four fixed values** (`MEMORIZATION_EVALUATIONS` in packages/shared/constants.ts):
+  excellent, very_good, good, weak — exactly what was asked for, no open-ended text
+  field. Enforced server-side via the zod enum and the Mongoose schema's own `enum`, not
+  left to client-side validation alone.
+- **Displayed as a `StatusChip`**, not a bare color swatch — SPEC.md §8 ("color is never
+  the sole carrier of meaning") already established this pattern for attendance/approval
+  statuses; reused the same component rather than inventing a second way to show a
+  graded state. Tone mapping: excellent→success, very_good→info, good→neutral,
+  weak→warning (not "danger" — a weak recitation is a normal, expected part of teaching,
+  not an error condition).
+
+Verified live: booted the real API against a throwaway in-memory replica set, logged in
+as admin in a real browser, opened a circle's Memorization tab, picked a student, filled
+both the new-memorization range (rated "Very Good") and the revision range (rated
+"Weak"), saved, and confirmed both ratings rendered as distinct colored/iconed chips next
+to their ranges in the history list below. Also covered by 3 new backend tests (stores
+the evaluation on both ranges, defaults to absent when omitted, rejects an unknown
+evaluation value) — full suite 93/93 green.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

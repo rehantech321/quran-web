@@ -203,7 +203,13 @@
     "fromAyah": "From ayah",
     "toAyah": "To ayah",
     "newMemorization": "New memorization",
-    "revision": "Revision"
+    "revision": "Revision",
+    "evaluation": "Evaluation",
+    "evaluationNone": "No evaluation",
+    "evaluationExcellent": "Excellent",
+    "evaluationVeryGood": "Very good",
+    "evaluationGood": "Good",
+    "evaluationWeak": "Weak"
   },
   "questions": {
     "questionText": "Question text",

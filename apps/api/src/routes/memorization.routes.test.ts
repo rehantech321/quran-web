@@ -70,6 +70,77 @@ describe("memorization routes", () => {
     });
   });
 
+  it("stores the teacher's recitation evaluation alongside each range", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    const res = await request(app)
+      .post("/api/v1/memorization")
+      .set("Authorization", authHeader(admin))
+      .send({
+        studentId: student._id.toString(),
+        circleId: circle._id.toString(),
+        newMemorization: {
+          surahNumber: 67,
+          fromAyah: 1,
+          toAyah: 10,
+          evaluation: "very_good",
+        },
+        revision: { surahNumber: 2, fromAyah: 255, toAyah: 257, evaluation: "weak" },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.newMemorization.evaluation).toBe("very_good");
+    expect(res.body.data.revision.evaluation).toBe("weak");
+  });
+
+  it("evaluation is optional — a range can be recorded with no rating yet", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    const res = await request(app)
+      .post("/api/v1/memorization")
+      .set("Authorization", authHeader(admin))
+      .send({
+        studentId: student._id.toString(),
+        circleId: circle._id.toString(),
+        newMemorization: { surahNumber: 67, fromAyah: 1, toAyah: 10 },
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data.newMemorization.evaluation).toBeUndefined();
+  });
+
+  it("rejects an evaluation value outside the known set", async () => {
+    const org = await createTestOrg();
+    const admin = await createTestAdmin(org._id);
+    const supervisor = await createTestSupervisor(org._id);
+    const circle = await createTestCircle(org._id, supervisor._id);
+    const student = await createTestStudent(org._id, circle._id);
+
+    const res = await request(app)
+      .post("/api/v1/memorization")
+      .set("Authorization", authHeader(admin))
+      .send({
+        studentId: student._id.toString(),
+        circleId: circle._id.toString(),
+        newMemorization: {
+          surahNumber: 67,
+          fromAyah: 1,
+          toAyah: 10,
+          evaluation: "amazing",
+        },
+      });
+
+    expect(res.status).toBe(400);
+  });
+
   it("rejects an ayah range that exceeds the chosen surah's real ayah count", async () => {
     const org = await createTestOrg();
     const admin = await createTestAdmin(org._id);

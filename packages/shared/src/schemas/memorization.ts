@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MEMORIZATION_EVALUATIONS } from "../constants.js";
 import { QURAN_SURAH_BY_NUMBER } from "../quran.js";
 import { objectIdSchema, paginationQuerySchema } from "./common.js";
 
@@ -15,6 +16,10 @@ export const ayahRangeSchema = z
     surahNumber: z.number().int().min(1).max(114),
     fromAyah: z.number().int().min(1),
     toAyah: z.number().int().min(1),
+    // The teacher's rating of how well the student recited this portion —
+    // optional since a record can be logged before the student has recited
+    // it to anyone yet.
+    evaluation: z.enum(MEMORIZATION_EVALUATIONS).optional(),
   })
   .refine((v) => v.fromAyah <= v.toAyah, {
     message: "fromAyah_must_be_less_than_or_equal_to_toAyah",

@@ -34,6 +34,15 @@ export type GradeToPointsMode = (typeof GRADE_TO_POINTS_MODES)[number];
 export const LEADERBOARD_PERIODS = ["week", "month", "term", "all"] as const;
 export type LeaderboardPeriod = (typeof LEADERBOARD_PERIODS)[number];
 
+/** How a teacher rates a student's recitation of a memorization/revision portion — worst to best is not implied by this order; kept in the order a teacher picks from (best first). */
+export const MEMORIZATION_EVALUATIONS = [
+  "excellent",
+  "very_good",
+  "good",
+  "weak",
+] as const;
+export type MemorizationEvaluation = (typeof MEMORIZATION_EVALUATIONS)[number];
+
 /** Default per-organization points configuration (§4 Organization.pointsConfig). */
 export const DEFAULT_POINTS_CONFIG = {
   attendancePresent: 10,

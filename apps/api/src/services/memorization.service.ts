@@ -18,6 +18,7 @@ function resolveAyahRange(input: AyahRangeInput): AyahRangeFields {
     surahName: surah.nameAr,
     fromAyah: input.fromAyah,
     toAyah: input.toAyah,
+    evaluation: input.evaluation,
   };
 }
 

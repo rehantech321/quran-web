@@ -204,7 +204,13 @@
     "fromAyah": "من الآية",
     "toAyah": "إلى الآية",
     "newMemorization": "الحفظ الجديد",
-    "revision": "المراجعة"
+    "revision": "المراجعة",
+    "evaluation": "التقييم",
+    "evaluationNone": "بدون تقييم",
+    "evaluationExcellent": "ممتاز",
+    "evaluationVeryGood": "جيد جداً",
+    "evaluationGood": "جيد",
+    "evaluationWeak": "ضعيف"
   },
   "questions": {
     "questionText": "نص السؤال",
