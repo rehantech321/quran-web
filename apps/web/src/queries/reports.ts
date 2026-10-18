@@ -129,11 +129,11 @@ export interface ParentWeeklyReport {
     fullName: string;
     circleId: string;
     circleName: string;
-    totalPoints: number;
   };
   range: { from: string; to: string };
-  rank: { rank: number; outOf: number } | null;
   attendance: { present: number; late: number; absent: number; excused: number };
+  correctAnswers: number;
+  periodPoints: number;
   newMemorization: ParentWeeklyReportAyahEntry[];
   revision: ParentWeeklyReportAyahEntry[];
 }

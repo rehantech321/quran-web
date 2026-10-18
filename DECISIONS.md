@@ -1368,4 +1368,50 @@ to their ranges in the history list below. Also covered by 3 new backend tests (
 the evaluation on both ranges, defaults to absent when omitted, rejects an unknown
 evaluation value) — full suite 93/93 green.
 
+## Post-launch — Parent report rewritten to the app owner's exact wording, consolidated with the old periodic WhatsApp report
+
+The app owner sent a literal, line-by-line template for the WhatsApp message they
+wanted ("Assalamu Alaikum, / Student Report: X / Report Period: Monthly / Number of
+Attendance Days: 20 Number of Absence Days: 10 Correct Answers to Questions: 40 /
+Completed Tasks: ..."), overriding the shape the earlier "Weekly Report for Parents"
+feature had guessed at.
+
+- **Consolidated two features into one.** `SendWhatsAppCard` already had a
+  period-selectable (daily/weekly/monthly) "send report" button using
+  `getStudentReport`'s percentage-based stats; `ParentWeeklyReportCard` (previous
+  session) was a separate, always-7-days card with actual day counts and rank. Two
+  "send a periodic report" buttons on the same profile would have been genuinely
+  confusing — which one does a teacher click? Removed the old one's report-sending half
+  entirely (kept its free-text custom-message half, a different purpose) and gave
+  `ParentWeeklyReportCard` the period selector instead, since its data (actual counts,
+  memorization) was what the app owner actually wanted, just not fixed to a week.
+- **Dropped rank and all-time total points** — the new template doesn't mention either.
+  Replaced `student.totalPoints` (all-time) with `periodPoints` (a ledger sum scoped to
+  the selected date range, same pattern `getStudentReport`'s `periodPoints` already
+  used) since "Points Earned During This Period: 180" is explicitly period-scoped, not
+  the student's running total. Removed the now-unused `getLeaderboard` call from
+  `getParentWeeklyReport` entirely rather than leaving a dead rank field around.
+- **Added `correctAnswers`** (a plain count of correct `QuestionAnswer`s in range, not
+  an accuracy percentage) and restructured memorization/revision into one "Completed
+  Tasks" list with `Memorization:`/`Revision:` labeled lines, matching the template's
+  grouping exactly instead of two separate headed sections.
+- **Bullets use `-`, not the `*` the pasted template showed** — WhatsApp interprets a
+  bare leading `*` as the start of _bold_ formatting; an unclosed `*` per line risks the
+  rest of the message rendering oddly. A plain dash is unambiguous on the actual delivery
+  channel, which is what the feature is for.
+- **Moved period helpers (`ReportPeriod`, `periodToRange`) out of `StudentForm.tsx`** into
+  `lib/reportPeriod.ts` so `lib/parentReportMessage.ts` could use them without a
+  lib-importing-from-a-page-component dependency direction.
+
+Verified live: seeded a student with one present (auto-upgraded to "late" by the
+real-time lateAfter check — still correctly counted as a day attended, same convention
+as `attendanceRate` elsewhere) and one absent day, a memorization + revision entry, one
+correctly-answered question, and manual points; booted the real API + a real browser,
+set the period selector to "Monthly," and diffed both the in-app view and the decoded
+`wa.me` WhatsApp link's message text against the app owner's exact template — every
+line matches. The points total surfaced one value short of a naive hand-calculation at
+first; traced to the attendance record's real auto-late-upgrade (not a bug — confirmed
+against the raw `PointsLedger` entries) rather than re-guessing. Full API suite 93/93
+green afterward.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

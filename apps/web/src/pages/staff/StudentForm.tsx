@@ -12,13 +12,10 @@ import { Button, Card, CardBody, Input, Select } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { compressImageForUpload } from "@/lib/imageCompression";
 import { buildParentWeeklyReportMessage } from "@/lib/parentReportMessage";
+import { periodToRange, type ReportPeriod } from "@/lib/reportPeriod";
 import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
 import { useOrganization } from "@/queries/organizations";
-import {
-  fetchParentWeeklyReport,
-  fetchStudentReport,
-  type ParentWeeklyReport,
-} from "@/queries/reports";
+import { fetchParentWeeklyReport, type ParentWeeklyReport } from "@/queries/reports";
 import {
   useAddManualPoints,
   useCreateStudent,
@@ -152,11 +149,7 @@ export function StudentForm() {
       )}
 
       {isEditing && studentId && student && (
-        <SendWhatsAppCard
-          studentId={studentId}
-          fullName={student.fullName}
-          parentPhone={student.parentPhone}
-        />
+        <SendWhatsAppCard parentPhone={student.parentPhone} />
       )}
 
       {isEditing && studentId && student && (
@@ -424,41 +417,15 @@ function StudentAccessCard({
   );
 }
 
-type ReportPeriod = "daily" | "weekly" | "monthly";
-
-const PERIOD_LABEL_KEYS: Record<ReportPeriod, string> = {
-  daily: "whatsapp.periodDaily",
-  weekly: "whatsapp.periodWeekly",
-  monthly: "whatsapp.periodMonthly",
-};
-
-function periodToRange(period: ReportPeriod): { from: Date; to: Date } {
-  const to = new Date();
-  const from = new Date(to);
-  if (period === "daily") {
-    from.setHours(0, 0, 0, 0);
-  } else if (period === "weekly") {
-    from.setDate(from.getDate() - 7);
-  } else {
-    from.setDate(from.getDate() - 30);
-  }
-  return { from, to };
-}
-
-function SendWhatsAppCard({
-  studentId,
-  fullName,
-  parentPhone,
-}: {
-  studentId: string;
-  fullName: string;
-  parentPhone: string;
-}) {
+/**
+ * A free-form message the supervisor types themselves — distinct from
+ * `ParentWeeklyReportCard` below, which builds a structured, data-backed
+ * report. This card is for anything that doesn't fit that shape (a quick
+ * note, a reminder) and has no period/report logic of its own.
+ */
+function SendWhatsAppCard({ parentPhone }: { parentPhone: string }) {
   const { t } = useTranslation();
-  const { data: org } = useOrganization();
   const [customMessage, setCustomMessage] = useState("");
-  const [period, setPeriod] = useState<ReportPeriod>("weekly");
-  const [isSendingReport, setIsSendingReport] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function onSendCustomMessage() {
@@ -467,90 +434,32 @@ function SendWhatsAppCard({
     if (!sent) setError(t("whatsapp.invalidPhone"));
   }
 
-  async function onSendReport() {
-    setError(null);
-    if (!isLikelyValidWhatsAppPhone(parentPhone)) {
-      setError(t("whatsapp.invalidPhone"));
-      return;
-    }
-    setIsSendingReport(true);
-    try {
-      const range = periodToRange(period);
-      const report = await fetchStudentReport(studentId, range);
-      const lines = [
-        t("whatsapp.reportGreeting", { name: fullName }),
-        `${t("whatsapp.reportPeriod")}: ${t(PERIOD_LABEL_KEYS[period])}`,
-        "",
-      ];
-      if (report.stats.attendanceRate !== null) {
-        lines.push(`${t("whatsapp.attendanceRate")}: ${report.stats.attendanceRate}%`);
-      }
-      if (report.stats.avgGrade !== null) {
-        lines.push(`${t("whatsapp.avgGrade")}: ${report.stats.avgGrade}`);
-      }
-      if (report.stats.questionAccuracy !== null) {
-        lines.push(
-          `${t("whatsapp.questionAccuracy")}: ${report.stats.questionAccuracy}%`,
-        );
-      }
-      lines.push(`${t("whatsapp.tasksApproved")}: ${report.stats.tasksApproved}`);
-      lines.push(`${t("whatsapp.pointsEarned")}: ${report.stats.periodPoints}`);
-      if (org?.name) {
-        lines.push("", t("whatsapp.reportFooter", { orgName: org.name }));
-      }
-      openWhatsAppChat(parentPhone, lines.join("\n"));
-    } catch {
-      setError(t("whatsapp.reportFetchError"));
-    } finally {
-      setIsSendingReport(false);
-    }
-  }
-
   return (
     <Card className="p-4">
       <h2 className="mb-3 text-sm font-semibold text-ink-900">{t("whatsapp.title")}</h2>
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="whatsapp-custom-message"
-            className="text-sm font-medium text-ink-900"
-          >
-            {t("whatsapp.customMessageLabel")}
-          </label>
-          <textarea
-            id="whatsapp-custom-message"
-            value={customMessage}
-            onChange={(e) => setCustomMessage(e.target.value)}
-            placeholder={t("whatsapp.customMessagePlaceholder")}
-            rows={3}
-            className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-start text-sm text-ink-900 placeholder:text-ink-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onSendCustomMessage}
-            disabled={!customMessage.trim()}
-          >
-            {t("whatsapp.sendMessage")}
-          </Button>
-        </div>
-
-        <div className="flex flex-wrap items-end gap-2 border-t border-cream-200 pt-3">
-          <Select
-            label={t("whatsapp.reportPeriod")}
-            value={period}
-            onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
-            className="w-32"
-          >
-            <option value="daily">{t("whatsapp.periodDaily")}</option>
-            <option value="weekly">{t("whatsapp.periodWeekly")}</option>
-            <option value="monthly">{t("whatsapp.periodMonthly")}</option>
-          </Select>
-          <Button size="sm" onClick={onSendReport} disabled={isSendingReport}>
-            {isSendingReport ? t("whatsapp.sendingReport") : t("whatsapp.sendReport")}
-          </Button>
-        </div>
-
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor="whatsapp-custom-message"
+          className="text-sm font-medium text-ink-900"
+        >
+          {t("whatsapp.customMessageLabel")}
+        </label>
+        <textarea
+          id="whatsapp-custom-message"
+          value={customMessage}
+          onChange={(e) => setCustomMessage(e.target.value)}
+          placeholder={t("whatsapp.customMessagePlaceholder")}
+          rows={3}
+          className="rounded-lg border border-cream-200 bg-cream-50 px-3 py-2 text-start text-sm text-ink-900 placeholder:text-ink-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-500"
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={onSendCustomMessage}
+          disabled={!customMessage.trim()}
+        >
+          {t("whatsapp.sendMessage")}
+        </Button>
         {error && (
           <p role="alert" className="text-xs text-danger">
             {error}
@@ -562,11 +471,13 @@ function SendWhatsAppCard({
 }
 
 /**
- * "Weekly Report for Parents" (SPEC extension request) — new memorization
- * and revision ranges, attendance as actual day counts (deliberately never
- * a percentage, per that request), and the student's total points + rank
- * within their own circle. Viewable inline in the app and sendable to the
- * parent via WhatsApp — the two delivery paths the request asked for.
+ * The parent-facing report (originally "Weekly Report for Parents", now
+ * period-selectable like the old periodic WhatsApp report it replaced):
+ * attendance as actual day counts (never a percentage — explicitly asked
+ * for), correct weekly-question answers, completed memorization/revision
+ * portions, and points earned within the chosen period. Viewable inline in
+ * the app and sendable to the parent via WhatsApp in the exact wording the
+ * app owner specified.
  */
 function ParentWeeklyReportCard({
   studentId,
@@ -577,6 +488,7 @@ function ParentWeeklyReportCard({
 }) {
   const { t, i18n } = useTranslation();
   const { data: org } = useOrganization();
+  const [period, setPeriod] = useState<ReportPeriod>("weekly");
   const [report, setReport] = useState<ParentWeeklyReport | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -586,7 +498,7 @@ function ParentWeeklyReportCard({
     setIsLoading(true);
     setError(null);
     try {
-      const fresh = await fetchParentWeeklyReport(studentId);
+      const fresh = await fetchParentWeeklyReport(studentId, periodToRange(period));
       setReport(fresh);
       return fresh;
     } catch {
@@ -598,7 +510,9 @@ function ParentWeeklyReportCard({
   }
 
   async function onToggleView() {
-    if (!showReport && !report) await loadReport();
+    // Always reload on open — the previously-shown report may be for a
+    // different period if the supervisor changed the selector in between.
+    if (!showReport) await loadReport();
     setShowReport((prev) => !prev);
   }
 
@@ -609,7 +523,7 @@ function ParentWeeklyReportCard({
     }
     const fresh = await loadReport();
     if (!fresh) return;
-    const message = buildParentWeeklyReportMessage(t, fresh, i18n.language, org?.name);
+    const message = buildParentWeeklyReportMessage(t, fresh, period, org?.name);
     openWhatsAppChat(parentPhone, message);
   }
 
@@ -618,7 +532,20 @@ function ParentWeeklyReportCard({
       <h2 className="mb-3 text-sm font-semibold text-ink-900">
         {t("parentReport.title")}
       </h2>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-end gap-2">
+        <Select
+          label={t("whatsapp.reportPeriod")}
+          value={period}
+          onChange={(e) => {
+            setPeriod(e.target.value as ReportPeriod);
+            setShowReport(false);
+          }}
+          className="w-32"
+        >
+          <option value="daily">{t("whatsapp.periodDaily")}</option>
+          <option value="weekly">{t("whatsapp.periodWeekly")}</option>
+          <option value="monthly">{t("whatsapp.periodMonthly")}</option>
+        </Select>
         <Button size="sm" variant="secondary" onClick={onToggleView} disabled={isLoading}>
           {isLoading
             ? t("parentReport.preparingReport")
@@ -645,37 +572,7 @@ function ParentWeeklyReportCard({
             {new Date(report.range.to).toLocaleDateString(i18n.language)}
           </p>
 
-          <ParentReportSection title={t("parentReport.newMemorizationHeading")}>
-            {report.newMemorization.length > 0 ? (
-              <ul className="flex flex-col gap-1">
-                {report.newMemorization.map((e, i) => (
-                  <li key={i} className="text-ink-700">
-                    {e.surahName} — {t("memorization.fromAyah")} {e.fromAyah}{" "}
-                    {t("memorization.toAyah")} {e.toAyah}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-ink-500">{t("parentReport.noNewMemorization")}</p>
-            )}
-          </ParentReportSection>
-
-          <ParentReportSection title={t("parentReport.revisionHeading")}>
-            {report.revision.length > 0 ? (
-              <ul className="flex flex-col gap-1">
-                {report.revision.map((e, i) => (
-                  <li key={i} className="text-ink-700">
-                    {e.surahName} — {t("memorization.fromAyah")} {e.fromAyah}{" "}
-                    {t("memorization.toAyah")} {e.toAyah}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-ink-500">{t("parentReport.noRevision")}</p>
-            )}
-          </ParentReportSection>
-
-          <ParentReportSection title={t("parentReport.attendanceHeading")}>
+          <div className="rounded-lg border border-cream-200 bg-cream-50 p-3">
             {/* A late arrival still attended — merge it into "present" the
                 same way `attendanceRate` does elsewhere, so a student who
                 was late every day doesn't read as "never attended". */}
@@ -686,22 +583,43 @@ function ParentWeeklyReportCard({
             <p className="text-ink-700">
               {t("parentReport.daysAbsent")}: {report.attendance.absent}
             </p>
-          </ParentReportSection>
-
-          <ParentReportSection title={t("parentReport.pointsHeading")}>
             <p className="text-ink-700">
-              {t("parentReport.totalPoints")}: {report.student.totalPoints}
+              {t("parentReport.correctAnswers")}: {report.correctAnswers}
             </p>
-            {report.rank && (
-              <p className="text-ink-700">
-                {t("parentReport.rankInCircle")}:{" "}
-                {t("parentReport.rankValue", {
-                  rank: report.rank.rank,
-                  total: report.rank.outOf,
-                })}
-              </p>
+          </div>
+
+          <ParentReportSection title={t("parentReport.completedTasksHeading")}>
+            {report.newMemorization.length === 0 && report.revision.length === 0 ? (
+              <p className="text-ink-500">{t("parentReport.noCompletedTasks")}</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {report.newMemorization.map((e, i) => (
+                  <li key={`new-${i}`} className="text-ink-700">
+                    {t("parentReport.memorizationLabel")}:{" "}
+                    {t("parentReport.ayahRangeLine", {
+                      surah: e.surahName,
+                      from: e.fromAyah,
+                      to: e.toAyah,
+                    })}
+                  </li>
+                ))}
+                {report.revision.map((e, i) => (
+                  <li key={`rev-${i}`} className="text-ink-700">
+                    {t("parentReport.revisionLabel")}:{" "}
+                    {t("parentReport.ayahRangeLine", {
+                      surah: e.surahName,
+                      from: e.fromAyah,
+                      to: e.toAyah,
+                    })}
+                  </li>
+                ))}
+              </ul>
             )}
           </ParentReportSection>
+
+          <p className="text-ink-900">
+            {t("parentReport.pointsEarned")}: {report.periodPoints}
+          </p>
         </div>
       )}
     </Card>

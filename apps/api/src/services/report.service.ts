@@ -379,11 +379,11 @@ export interface ParentWeeklyReport {
     fullName: string;
     circleId: Types.ObjectId;
     circleName: string;
-    totalPoints: number;
   };
   range: { from: Date; to: Date };
-  rank: { rank: number; outOf: number } | null;
   attendance: { present: number; late: number; absent: number; excused: number };
+  correctAnswers: number;
+  periodPoints: number;
   newMemorization: ParentWeeklyReportAyahEntry[];
   revision: ParentWeeklyReportAyahEntry[];
 }
@@ -391,13 +391,16 @@ export interface ParentWeeklyReport {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * The parent-facing weekly report (SPEC extension request): new
- * memorization and revision ranges, attendance as actual day counts (never
- * a percentage — a parent asked for this explicitly, since "80% attendance"
- * doesn't say how many sessions that was out of), and the student's
- * standing — total points and rank — within their own circle. Defaults to
- * the trailing 7 days when no explicit range is given, matching the
- * feature's name.
+ * The parent-facing report (SPEC extension request) for a chosen period
+ * (daily/weekly/monthly — the caller computes `range` from that, same as
+ * `getStudentReport`'s WhatsApp callers already do): new memorization and
+ * revision ranges, attendance as actual day counts (never a percentage — a
+ * parent asked for this explicitly, since "80% attendance" doesn't say how
+ * many sessions that was out of), the number of correctly-answered weekly
+ * questions, and points earned in that same window specifically (not the
+ * student's all-time total — a monthly report should show what was earned
+ * that month). Defaults to the trailing 7 days when no explicit range is
+ * given.
  */
 export async function getParentWeeklyReport(
   organizationId: string,
@@ -409,7 +412,7 @@ export async function getParentWeeklyReport(
   const to = range.to ?? new Date();
   const from = range.from ?? new Date(to.getTime() - WEEK_MS);
 
-  const [attendance, memorizationLogs, leaderboard] = await Promise.all([
+  const [attendance, memorizationLogs, answers, ledgerEntries] = await Promise.all([
     AttendanceRecord.find({
       organizationId,
       studentId: student._id,
@@ -423,16 +426,20 @@ export async function getParentWeeklyReport(
     })
       .sort({ date: 1 })
       .lean(),
-    getLeaderboard(organizationId, {
-      circleId: student.circleId.toString(),
-      period: "all",
-    }),
+    QuestionAnswer.find({
+      organizationId,
+      studentId: student._id,
+      answeredAt: { $gte: from, $lte: to },
+    }).lean(),
+    PointsLedger.find({
+      organizationId,
+      studentId: student._id,
+      occurredAt: { $gte: from, $lte: to },
+    }).lean(),
   ]);
 
   const attendanceCounts = { present: 0, late: 0, absent: 0, excused: 0 };
   for (const record of attendance) attendanceCounts[record.status] += 1;
-
-  const rankEntry = leaderboard.find((e) => String(e.studentId) === String(student._id));
 
   const toEntries = (field: "newMemorization" | "revision") =>
     memorizationLogs
@@ -445,11 +452,11 @@ export async function getParentWeeklyReport(
       fullName: student.fullName,
       circleId: student.circleId,
       circleName: circle.name,
-      totalPoints: student.totalPoints,
     },
     range: { from, to },
-    rank: rankEntry ? { rank: rankEntry.rank, outOf: leaderboard.length } : null,
     attendance: attendanceCounts,
+    correctAnswers: answers.filter((a) => a.isCorrect).length,
+    periodPoints: ledgerEntries.reduce((sum, e) => sum + e.points, 0),
     newMemorization: toEntries("newMemorization"),
     revision: toEntries("revision"),
   };

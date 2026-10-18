@@ -12,10 +12,12 @@ import {
 } from "vitest";
 
 import { createApp } from "../app.js";
+import { WeeklyQuestion } from "../models/WeeklyQuestion.js";
 import { signAccessToken } from "../services/auth.service.js";
 import { addManualPoints } from "../services/student.service.js";
 import { recordManualAttendance } from "../services/attendance.service.js";
 import { recordMemorization } from "../services/memorization.service.js";
+import { answerQuestion } from "../services/question.service.js";
 import { clearTestDb, connectTestDb, disconnectTestDb } from "../test/dbTestUtils.js";
 import {
   createTestAdmin,
@@ -57,7 +59,7 @@ describe("GET /reports/parent-weekly/:id", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it("reports actual attendance day counts (not a percentage), memorization ranges, points, and circle rank", async () => {
+  it("reports actual attendance day counts (not a percentage), correct answers, memorization ranges, and points earned within the chosen period", async () => {
     const org = await createTestOrg({ pointsConfig: { attendancePresent: 10 } });
     const admin = await createTestAdmin(org._id);
     const supervisor = await createTestSupervisor(org._id);
@@ -65,9 +67,12 @@ describe("GET /reports/parent-weekly/:id", () => {
     const student = await createTestStudent(org._id, circle._id, {
       fullName: "طالب الاختبار",
     });
-    const other = await createTestStudent(org._id, circle._id);
 
-    const from = new Date("2026-01-05");
+    // The suite's fake clock (see beforeEach below) is pinned to
+    // 2026-01-01T10:00 — the queried range must include "now" since
+    // `answerQuestion`/`addManualPoints` both stamp their own timestamp at
+    // call time rather than accepting one as a parameter.
+    const from = new Date("2026-01-01");
     const to = new Date("2026-01-11");
 
     await recordManualAttendance({
@@ -106,16 +111,31 @@ describe("GET /reports/parent-weekly/:id", () => {
       recordedBy: supervisor._id,
     });
 
+    const question = await WeeklyQuestion.create({
+      organizationId: org._id,
+      circleId: circle._id,
+      weekOf: new Date("2026-01-01"),
+      questionText: "test",
+      options: [
+        { key: "A", text: "a" },
+        { key: "B", text: "b" },
+      ],
+      correctOptionKey: "A",
+      points: 15,
+      createdBy: supervisor._id,
+      isPublished: true,
+    });
+    await answerQuestion({
+      organizationId: org._id,
+      questionId: question._id,
+      studentId: student._id,
+      selectedOptionKey: "A",
+    });
+
     await addManualPoints(
       org._id.toString(),
       student._id,
       { points: 100, reason: "test" },
-      supervisor._id,
-    );
-    await addManualPoints(
-      org._id.toString(),
-      other._id,
-      { points: 20, reason: "test" },
       supervisor._id,
     );
 
@@ -131,6 +151,7 @@ describe("GET /reports/parent-weekly/:id", () => {
       absent: 1,
       excused: 0,
     });
+    expect(res.body.data.correctAnswers).toBe(1);
     expect(res.body.data.newMemorization).toHaveLength(1);
     expect(res.body.data.newMemorization[0]).toMatchObject({
       surahNumber: 2,
@@ -143,10 +164,11 @@ describe("GET /reports/parent-weekly/:id", () => {
       fromAyah: 1,
       toAyah: 7,
     });
-    // 100 manual + the org's default attendance-present award for the one
-    // "present" day recorded inside the range.
-    expect(res.body.data.student.totalPoints).toBe(110);
-    expect(res.body.data.rank).toEqual({ rank: 1, outOf: 2 });
+    // 100 manual + 15 for the correct answer + 10 for the one "present" day
+    // recorded inside the range — all earned within this window.
+    expect(res.body.data.periodPoints).toBe(125);
+    expect(res.body.data.student).not.toHaveProperty("totalPoints");
+    expect(res.body.data).not.toHaveProperty("rank");
   });
 
   it("defaults to the trailing 7 days when no range is given", async () => {

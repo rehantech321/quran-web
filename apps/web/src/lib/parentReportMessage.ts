@@ -1,65 +1,65 @@
 import type { TFunction } from "i18next";
 
+import { PERIOD_LABEL_KEYS, type ReportPeriod } from "@/lib/reportPeriod";
 import type { ParentWeeklyReport, ParentWeeklyReportAyahEntry } from "@/queries/reports";
 
-function ayahRangeLine(t: TFunction, entry: ParentWeeklyReportAyahEntry): string {
-  return t("parentReport.ayahRangeLine", {
+function completedTaskLine(
+  t: TFunction,
+  labelKey: string,
+  entry: ParentWeeklyReportAyahEntry,
+): string {
+  const range = t("parentReport.ayahRangeLine", {
     surah: entry.surahName,
     from: entry.fromAyah,
     to: entry.toAyah,
   });
+  return `${t(labelKey)}: ${range}`;
 }
 
 /**
- * Builds the parent-facing weekly report as plain text for WhatsApp — the
- * same data the in-app card renders as sections, flattened into a single
- * message. Attendance is always the actual day counts the API returns
- * (never a percentage): a parent asked for this explicitly, since "80%"
- * doesn't say how many sessions that was out of.
+ * Builds the parent-facing report as plain text for WhatsApp, in the exact
+ * format the app owner specified: a greeting, "Student Report: <name>",
+ * "Report Period: <Daily/Weekly/Monthly>", attendance as actual day counts
+ * (never a percentage), correct question answers, a "Completed Tasks" list
+ * of memorization/revision portions, and points earned within that period —
+ * not the student's all-time total, since a monthly report should show what
+ * was earned that month.
  */
 export function buildParentWeeklyReportMessage(
   t: TFunction,
   report: ParentWeeklyReport,
-  locale: string,
+  period: ReportPeriod,
   orgName?: string,
 ): string {
-  const from = new Date(report.range.from).toLocaleDateString(locale);
-  const to = new Date(report.range.to).toLocaleDateString(locale);
-
   const lines = [
-    t("parentReport.greeting", { name: report.student.fullName }),
-    t("parentReport.periodLine", { from, to }),
+    t("parentReport.greeting"),
     "",
-    t("parentReport.newMemorizationHeading") + ":",
-    ...(report.newMemorization.length > 0
-      ? report.newMemorization.map((e) => `- ${ayahRangeLine(t, e)}`)
-      : [t("parentReport.noNewMemorization")]),
+    t("parentReport.studentReportLabel", { name: report.student.fullName }),
     "",
-    t("parentReport.revisionHeading") + ":",
-    ...(report.revision.length > 0
-      ? report.revision.map((e) => `- ${ayahRangeLine(t, e)}`)
-      : [t("parentReport.noRevision")]),
+    t("parentReport.periodLabel", { period: t(PERIOD_LABEL_KEYS[period]) }),
     "",
-    t("parentReport.attendanceHeading") + ":",
     // "Present" here means "attended" — a late arrival still attended, same
     // as `attendanceRate` elsewhere in the app treats present+late as
     // attendance. Without this, a student who arrived late every day would
     // show 0 days attended, which looked like they never showed up at all.
     `${t("parentReport.daysPresent")}: ${report.attendance.present + report.attendance.late}`,
     `${t("parentReport.daysAbsent")}: ${report.attendance.absent}`,
+    `${t("parentReport.correctAnswers")}: ${report.correctAnswers}`,
     "",
-    t("parentReport.pointsHeading") + ":",
-    `${t("parentReport.totalPoints")}: ${report.student.totalPoints}`,
+    t("parentReport.completedTasksHeading") + ":",
+    ...(report.newMemorization.length === 0 && report.revision.length === 0
+      ? [t("parentReport.noCompletedTasks")]
+      : [
+          ...report.newMemorization.map(
+            (e) => `- ${completedTaskLine(t, "parentReport.memorizationLabel", e)}`,
+          ),
+          ...report.revision.map(
+            (e) => `- ${completedTaskLine(t, "parentReport.revisionLabel", e)}`,
+          ),
+        ]),
+    "",
+    `${t("parentReport.pointsEarned")}: ${report.periodPoints}`,
   ];
-
-  if (report.rank) {
-    lines.push(
-      `${t("parentReport.rankInCircle")}: ${t("parentReport.rankValue", {
-        rank: report.rank.rank,
-        total: report.rank.outOf,
-      })}`,
-    );
-  }
 
   if (orgName) {
     lines.push("", t("parentReport.footer", { orgName }));
