@@ -106,8 +106,13 @@ describe("GET /reports/parent-weekly/:id", () => {
       circleId: circle._id,
       studentId: student._id,
       date: new Date("2026-01-07"),
-      newMemorization: { surahNumber: 2, fromAyah: 1, toAyah: 10 },
-      revision: { surahNumber: 1, fromAyah: 1, toAyah: 7 },
+      newMemorization: {
+        surahNumber: 2,
+        fromAyah: 1,
+        toAyah: 10,
+        evaluation: "very_good",
+      },
+      revision: { surahNumber: 1, fromAyah: 1, toAyah: 7, evaluation: "weak" },
       recordedBy: supervisor._id,
     });
 
@@ -157,12 +162,14 @@ describe("GET /reports/parent-weekly/:id", () => {
       surahNumber: 2,
       fromAyah: 1,
       toAyah: 10,
+      evaluation: "very_good",
     });
     expect(res.body.data.revision).toHaveLength(1);
     expect(res.body.data.revision[0]).toMatchObject({
       surahNumber: 1,
       fromAyah: 1,
       toAyah: 7,
+      evaluation: "weak",
     });
     // 100 manual + 15 for the correct answer + 10 for the one "present" day
     // recorded inside the range — all earned within this window.

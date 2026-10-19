@@ -1414,4 +1414,36 @@ first; traced to the attendance record's real auto-late-upgrade (not a bug — c
 against the raw `PointsLedger` entries) rather than re-guessing. Full API suite 93/93
 green afterward.
 
+## Post-launch — Fixed: recitation evaluation missing from the sent parent report
+
+Reported live: a parent-facing report was sent but the Excellent/Very Good/Good/Weak
+evaluation didn't appear anywhere in it, despite the app owner calling it "very
+important for parents to see."
+
+Root cause: `ParentWeeklyReportAyahEntry` (report.service.ts) never declared an
+`evaluation` field, even though the underlying `MemorizationLog` sub-documents it's
+built from have carried one since the memorization-evaluation feature shipped. The
+service's `toEntries` mapper already spread the _whole_ sub-document (`...log[field]!`),
+so the raw API response secretly included `evaluation` all along — the real gap was
+entirely on the consuming side: the TS interface never declared it, so neither
+`buildParentWeeklyReportMessage` (the WhatsApp text) nor `ParentWeeklyReportCard`'s
+in-app list ever read or rendered it. A field can round-trip through an API correctly
+and still never reach the user if nothing downstream knows to look at it — the fix
+in both call sites was still needed even once the type was corrected.
+
+Fixed by declaring `evaluation?: MemorizationEvaluation` on both the backend and
+frontend `ParentWeeklyReportAyahEntry` types, and threading it through to both render
+paths: the WhatsApp line now reads `"الحفظ: سورة الحج، من الآية 1 إلى 12 (جيد جداً)"`
+(evaluation label in parentheses right after the range it applies to), and the in-app
+view shows the same `StatusChip` MemorizationTab.tsx already uses. Extracted the
+evaluation→i18n-key and evaluation→chip-tone maps (previously only living inside
+MemorizationTab.tsx) into `lib/memorizationEvaluation.ts` so both places draw from one
+source instead of duplicating/drifting.
+
+Verified live: seeded a memorization entry rated "very_good" and a revision entry rated
+"weak," opened the parent report in a real browser, and confirmed both ratings appear
+in the in-app view AND in the decoded `wa.me` WhatsApp message text. Also covered by the
+existing parent-weekly-report route test (extended to assert `evaluation` round-trips
+through the API response). Full suite 93/93 green.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_

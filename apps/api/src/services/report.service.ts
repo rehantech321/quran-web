@@ -1,6 +1,6 @@
 import type { Types } from "mongoose";
 
-import type { LeaderboardPeriod } from "@halaqat/shared";
+import type { LeaderboardPeriod, MemorizationEvaluation } from "@halaqat/shared";
 
 import { AttendanceRecord } from "../models/AttendanceRecord.js";
 import { CircleGrade } from "../models/CircleGrade.js";
@@ -371,6 +371,7 @@ export interface ParentWeeklyReportAyahEntry {
   surahName: string;
   fromAyah: number;
   toAyah: number;
+  evaluation?: MemorizationEvaluation;
 }
 
 export interface ParentWeeklyReport {

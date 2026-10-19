@@ -8,9 +8,10 @@ import { z } from "zod";
 
 import { createStudentSchema, updateStudentSchema } from "@halaqat/shared";
 
-import { Button, Card, CardBody, Input, Select } from "@/components/ui";
+import { Button, Card, CardBody, Input, Select, StatusChip } from "@/components/ui";
 import { getApiErrorMessage } from "@/lib/apiClient";
 import { compressImageForUpload } from "@/lib/imageCompression";
+import { EVALUATION_LABEL_KEYS, EVALUATION_TONES } from "@/lib/memorizationEvaluation";
 import { buildParentWeeklyReportMessage } from "@/lib/parentReportMessage";
 import { periodToRange, type ReportPeriod } from "@/lib/reportPeriod";
 import { isLikelyValidWhatsAppPhone, openWhatsAppChat } from "@/lib/whatsapp";
@@ -594,23 +595,45 @@ function ParentWeeklyReportCard({
             ) : (
               <ul className="flex flex-col gap-1">
                 {report.newMemorization.map((e, i) => (
-                  <li key={`new-${i}`} className="text-ink-700">
-                    {t("parentReport.memorizationLabel")}:{" "}
-                    {t("parentReport.ayahRangeLine", {
-                      surah: e.surahName,
-                      from: e.fromAyah,
-                      to: e.toAyah,
-                    })}
+                  <li
+                    key={`new-${i}`}
+                    className="flex flex-wrap items-center gap-2 text-ink-700"
+                  >
+                    <span>
+                      {t("parentReport.memorizationLabel")}:{" "}
+                      {t("parentReport.ayahRangeLine", {
+                        surah: e.surahName,
+                        from: e.fromAyah,
+                        to: e.toAyah,
+                      })}
+                    </span>
+                    {e.evaluation && (
+                      <StatusChip
+                        tone={EVALUATION_TONES[e.evaluation]}
+                        label={t(EVALUATION_LABEL_KEYS[e.evaluation])}
+                      />
+                    )}
                   </li>
                 ))}
                 {report.revision.map((e, i) => (
-                  <li key={`rev-${i}`} className="text-ink-700">
-                    {t("parentReport.revisionLabel")}:{" "}
-                    {t("parentReport.ayahRangeLine", {
-                      surah: e.surahName,
-                      from: e.fromAyah,
-                      to: e.toAyah,
-                    })}
+                  <li
+                    key={`rev-${i}`}
+                    className="flex flex-wrap items-center gap-2 text-ink-700"
+                  >
+                    <span>
+                      {t("parentReport.revisionLabel")}:{" "}
+                      {t("parentReport.ayahRangeLine", {
+                        surah: e.surahName,
+                        from: e.fromAyah,
+                        to: e.toAyah,
+                      })}
+                    </span>
+                    {e.evaluation && (
+                      <StatusChip
+                        tone={EVALUATION_TONES[e.evaluation]}
+                        label={t(EVALUATION_LABEL_KEYS[e.evaluation])}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>

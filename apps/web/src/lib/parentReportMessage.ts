@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 
+import { EVALUATION_LABEL_KEYS } from "@/lib/memorizationEvaluation";
 import { PERIOD_LABEL_KEYS, type ReportPeriod } from "@/lib/reportPeriod";
 import type { ParentWeeklyReport, ParentWeeklyReportAyahEntry } from "@/queries/reports";
 
@@ -13,7 +14,14 @@ function completedTaskLine(
     from: entry.fromAyah,
     to: entry.toAyah,
   });
-  return `${t(labelKey)}: ${range}`;
+  // The teacher's recitation rating is the whole reason this feature was
+  // asked for ("it is very important for parents to see the evaluation") —
+  // appended in parentheses right after the range it applies to, not
+  // dropped just because it's optional data.
+  const evaluation = entry.evaluation
+    ? ` (${t(EVALUATION_LABEL_KEYS[entry.evaluation])})`
+    : "";
+  return `${t(labelKey)}: ${range}${evaluation}`;
 }
 
 /**

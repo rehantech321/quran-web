@@ -6,6 +6,7 @@ import { apiClient } from "@/lib/apiClient";
 import type {
   AttendanceRecord,
   CircleGrade,
+  MemorizationEvaluation,
   PointsBreakdown,
   PointsLedgerEntry,
   QuestionAnswer,
@@ -121,6 +122,7 @@ export interface ParentWeeklyReportAyahEntry {
   surahName: string;
   fromAyah: number;
   toAyah: number;
+  evaluation?: MemorizationEvaluation;
 }
 
 export interface ParentWeeklyReport {
