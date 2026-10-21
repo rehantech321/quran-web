@@ -1446,4 +1446,30 @@ in the in-app view AND in the decoded `wa.me` WhatsApp message text. Also covere
 existing parent-weekly-report route test (extended to assert `evaluation` round-trips
 through the API response). Full suite 93/93 green.
 
+## Post-launch — Top-5 leaderboard on each circle's Students tab
+
+Reuses the existing `/reports/leaderboard?circleId=&period=all` endpoint entirely
+unchanged — its ranking logic (sum from the `PointsLedger`, not the cached
+`Student.totalPoints`; deterministic name/id tiebreak; scoped to one circle when
+`circleId` is given) was already correct and already covered by tests from the earlier
+champions-ranking fix. No backend changes were needed for this request.
+
+- **A new `CircleLeaderboard` component, not a re-sort of the existing roster.** The
+  main student list in `StudentsTab.tsx` stays alphabetical (`listStudentsByCircle`
+  sorts by `fullName`) because that's what makes finding one specific student to edit
+  fast — re-sorting the whole roster by points would make that harder, not easier. The
+  leaderboard is a separate, capped-at-5 card above it instead.
+- **Rank #1 gets a gold badge** (reusing the `gold-400`/`primary-950` tokens the
+  Champions widget on the circles-list home screen already uses for its crowned
+  student), ranks 2-5 get a plain dark badge — consistent visual language without
+  inventing new silver/bronze color tokens the design system doesn't have.
+
+Verified live: seeded two circles on the same org — Circle A with 7 students (points
+10..70, so the top-5 cap actually excludes two) and Circle B with only 3 students on an
+entirely different point scale (5/25/50). Confirmed in a real browser that Circle A's
+leaderboard shows exactly students ranked 70/60/50/40/30 (the two lowest, 10 and 20,
+correctly excluded) and Circle B's shows its own 3 students ranked 50/25/5 — proving the
+ranking is computed independently per circle, not globally, and that a circle with fewer
+than 5 students just shows all of them.
+
 _(All 12 phases complete; further entries appended as post-launch work lands.)_
